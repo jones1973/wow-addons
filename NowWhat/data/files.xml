@@ -1,7 +1,0 @@
-<!-- data/files.xml -->
-<Ui>
-    <Script file="reputations.lua"/>
-    <Script file="vendors.lua"/>
-    <Script file="turnIns.lua"/>
-    <Script file="dungeons.lua"/>
-</Ui>

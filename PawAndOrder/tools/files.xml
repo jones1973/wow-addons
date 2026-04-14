@@ -1,6 +1,0 @@
-<Ui>
-    <Script file="harvestAbilities.lua"/>
-    <Script file="harvestPets.lua"/>
-	<Script file="harvestBreeds.lua"/>
-	<Script file="questieExtract.lua"/>
-</Ui>

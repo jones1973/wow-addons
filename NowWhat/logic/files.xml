@@ -1,6 +1,0 @@
-<!-- logic/files.xml -->
-<Ui>
-    <Script file="characterState.lua"/>
-    <Script file="engine.lua"/>
-    <Script file="chainResolver.lua"/>
-</Ui>

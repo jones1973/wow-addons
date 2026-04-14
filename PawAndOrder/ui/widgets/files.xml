@@ -1,9 +1,0 @@
-<!-- ui/widgets/files.xml -->
-<!-- PAO-specific widget components (not shared across addons) -->
-<Ui>
-    <Script file="petChip.lua"/>
-    <Script file="petRowButton.lua"/>
-    <Script file="petTooltips.lua"/>
-    <Script file="slotPicker.lua"/>
-    <Script file="speciesRowButton.lua"/>
-</Ui>

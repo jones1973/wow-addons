@@ -1,8 +1,0 @@
-<!-- NowWhat/files.xml -->
-<Ui>
-    <Script file="constants.lua"/>
-    <Script file="core.lua"/>
-    <Include file="data\files.xml"/>
-    <Include file="logic\files.xml"/>
-    <Include file="ui\files.xml"/>
-</Ui>

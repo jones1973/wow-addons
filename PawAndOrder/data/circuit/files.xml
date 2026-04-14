@@ -1,6 +1,0 @@
-<!-- data/circuit/files.xml -->
-<Ui>
-    <Script file="circuitConstants.lua"/>
-    <Script file="circuitData.lua"/>
-    <Script file="circuitPersistence.lua"/>
-</Ui>

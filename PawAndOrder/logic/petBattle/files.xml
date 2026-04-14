@@ -1,5 +1,0 @@
-<!-- logic/petBattle/files.xml -->
-<Ui>
-    <Script file="petBattle.lua"/>
-    <Script file="battleQuickRelease.lua"/>
-</Ui>
