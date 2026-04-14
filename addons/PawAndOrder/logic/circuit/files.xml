@@ -1,0 +1,10 @@
+<!-- logic/circuit/files.xml -->
+<Ui>
+    <Script file="circuitStateMachine.lua"/>
+    <Script file="routeOptimizer.lua"/>
+    <Script file="waypoint.lua"/>
+    <Script file="portalManager.lua"/>
+    <Script file="circuitBattleHandler.lua"/>
+    <Script file="circuitNpcFilter.lua"/>
+    <Script file="circuit.lua"/>
+</Ui>

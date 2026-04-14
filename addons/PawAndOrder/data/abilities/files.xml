@@ -1,0 +1,6 @@
+<!-- data/abilities/files.xml -->
+<Ui>
+    <Script file="abilities.lua"/>
+    <Script file="effects.lua"/>
+    <Script file="abilityConstants.lua"/>
+</Ui>

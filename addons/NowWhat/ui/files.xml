@@ -1,0 +1,4 @@
+<!-- ui/files.xml -->
+<Ui>
+    <Script file="frameMain.lua"/>
+</Ui>

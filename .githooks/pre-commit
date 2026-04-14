@@ -1,0 +1,27 @@
+#!/bin/bash
+# .githooks/pre-commit
+# Auto-sync shared files before each commit.
+# If shared files changed, synced copies are staged automatically.
+#
+# Install: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SYNC_SCRIPT="$REPO_ROOT/tools/sync.sh"
+
+if [[ ! -x "$SYNC_SCRIPT" ]]; then
+    echo "pre-commit: sync.sh not found or not executable, skipping sync"
+    exit 0
+fi
+
+# Check if anything is stale
+if ! "$SYNC_SCRIPT" --check > /dev/null 2>&1; then
+    echo "pre-commit: shared files out of sync, updating..."
+    "$SYNC_SCRIPT"
+
+    # Stage the updated files
+    git add addons/*/core/*.lua addons/*/ui/shared/*.lua 2>/dev/null || true
+
+    echo "pre-commit: synced files staged."
+fi

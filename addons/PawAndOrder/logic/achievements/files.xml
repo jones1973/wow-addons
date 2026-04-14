@@ -1,0 +1,4 @@
+<!-- logic/achievements/files.xml -->
+<Ui>
+    <Script file="achievements.lua"/>
+</Ui>

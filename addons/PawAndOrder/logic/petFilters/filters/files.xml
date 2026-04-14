@@ -1,0 +1,17 @@
+<!-- logic/petFilters/filters/files.xml -->
+<Ui>
+    <Script file="filterRarity.lua"/>
+    <Script file="filterFamily.lua"/>
+    <Script file="filterLevel.lua"/>
+    <Script file="filterBinary.lua"/>
+    <Script file="filterSource.lua"/>
+    <Script file="filterVs.lua"/>
+    <Script file="filterDamage.lua"/>
+    <Script file="filterCounter.lua"/>
+    <Script file="filterSpecies.lua"/>
+    <Script file="filterCount.lua"/>
+    <Script file="filterRecent.lua"/>
+    <Script file="filterText.lua"/>
+    <Script file="filterLocation.lua"/>
+    <Script file="filterFamilyRank.lua"/>
+</Ui>

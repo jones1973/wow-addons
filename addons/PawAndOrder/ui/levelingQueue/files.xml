@@ -1,0 +1,12 @@
+<!-- ui/levelingQueue/files.xml -->
+<Ui>
+    <Script file="editForm.lua"/>
+    <Script file="ghostCard.lua"/>
+    <Script file="autoScroll.lua"/>
+    <Script file="levelingDragHandler.lua"/>
+    <Script file="cardUpdate.lua"/>
+    <Script file="levelingFilterHelp.lua"/>
+    <Script file="levelingPreview.lua"/>
+    <Script file="levelingTab.lua"/>
+    <Script file="levelingQueue.lua"/>
+</Ui>

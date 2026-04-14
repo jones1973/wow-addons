@@ -1,0 +1,461 @@
+-- Luacheck configuration for Paw and Order WoW Addon
+-- Place in project root; luacheck auto-discovers it
+
+-- Target Lua 5.1 (WoW MoP Classic)
+std = "lua51"
+
+-- Max line length (0 = unlimited)
+max_line_length = false
+
+-- Allow self-shadowing (common in WoW callbacks)
+allow_defined_top = true
+
+-- Ignore unused self parameter (OOP methods)
+self = false
+
+-- Ignore these warning codes globally:
+-- W211: Unused local variable (common in WoW API destructuring)
+-- W212: Unused argument (callbacks often have unused params)
+-- W213: Unused loop variable
+-- W311: Value assigned to variable is unused (init patterns)
+-- W431: Shadowing upvalue (common in nested callbacks)
+-- W432: Shadowing upvalue argument
+-- W611-W614: Whitespace warnings (cosmetic)
+ignore = {
+  "211",          -- Unused variables (too common with WoW APIs)
+  "212",          -- Unused arguments (callback signatures)
+  "213",          -- Unused loop variables
+  "43[12]",       -- Shadowing in callbacks
+  "6..",          -- Whitespace issues
+}
+
+-- =============================================================================
+-- GLOBAL DEFINITIONS
+-- =============================================================================
+
+globals = {
+  -- Addon globals (read/write)
+  "PAO",
+  "Addon",
+  
+  -- SavedVariables (read/write)
+  "pao_settings",
+  "pao_circuit",
+  "pao_ability",
+  "pao_npc",
+  "pao_species",
+  "pao_edgeCasePets",
+  "pao_petAcquired",
+  "pao_leveling",
+  "pao_tools",
+  "pao_eventLog",
+  "pao_character",
+  
+  -- Slash commands
+  "SLASH_PAO1",
+  "SlashCmdList",
+  
+  -- WoW tables we write fields to
+  "StaticPopupDialogs",
+}
+
+read_globals = {
+  -- ==========================================================================
+  -- LUA STANDARD (WoW subset)
+  -- ==========================================================================
+  "bit",
+  "string", "table", "math", "coroutine",
+  "pairs", "ipairs", "next", "select", "unpack", "pack",
+  "type", "typeof", "tonumber", "tostring",
+  "print", "error", "assert", "pcall", "xpcall",
+  "getmetatable", "setmetatable", "rawget", "rawset", "rawequal",
+  "getfenv", "setfenv", "loadstring",
+  "date", "time", "difftime",
+  "format",  -- WoW global alias for string.format
+  "strmatch", "strfind", "strsub", "strlen", "strlower", "strupper",
+  "strtrim", "strsplit", "strjoin", "strrev",
+  "gsub", "gmatch",
+  "tinsert", "tremove", "sort", "wipe", "tContains", "tInvert",
+  "floor", "ceil", "abs", "min", "max", "mod", "sqrt", "log", "exp",
+  "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
+  "random", "randomseed",
+  "deg", "rad",
+  
+  -- ==========================================================================
+  -- WOW FRAME API
+  -- ==========================================================================
+  "CreateFrame",
+  "CreateColor",
+  "CreateFromMixins",
+  "Mixin",
+  "UIParent",
+  "UISpecialFrames",
+  "WorldFrame",
+  "GetMouseFocus",
+  "MouseIsOver",
+  "IsMouseButtonDown",
+  "GetCursorPosition",
+  "GetScreenWidth",
+  "GetScreenHeight",
+  "SetCursor",
+  "ResetCursor",
+  
+  -- ==========================================================================
+  -- WOW EVENTS & TIMING
+  -- ==========================================================================
+  "GetTime",
+  "C_Timer",
+  "After",  -- C_Timer.After shorthand in some contexts
+  
+  -- ==========================================================================
+  -- WOW PET BATTLE API
+  -- ==========================================================================
+  "C_PetJournal",
+  "C_PetBattles",
+  "C_PetInfo",
+  
+  -- ==========================================================================
+  -- WOW GENERAL API
+  -- ==========================================================================
+  "C_Map",
+  "C_QuestLog",
+  "C_Spell",
+  "C_SpellBook",
+  "C_Item",
+  "C_Container",
+  "C_TooltipInfo",
+  "C_CurrencyInfo",
+  "C_MountJournal",
+  "C_ToyBox",
+  "C_Heirloom",
+  "C_TransmogCollection",
+  "C_AchievementInfo",
+  "C_Calendar",
+  "C_DateAndTime",
+  "C_GossipInfo",
+  "C_SuperTrack",
+  "C_Navigation",
+  "C_PlayerInfo",
+  "C_UnitAuras",
+  "C_Texture",
+  "C_LobbyMatchmakerInfo",
+  
+  -- ==========================================================================
+  -- WOW UI WIDGETS
+  -- ==========================================================================
+  "GameTooltip",
+  "ItemRefTooltip",
+  "GameTooltip_SetDefaultAnchor",
+  "GameTooltip_Hide",
+  "GameFontNormal",
+  "GameFontNormalSmall",
+  "GameFontNormalLarge",
+  "GameFontHighlight",
+  "GameFontHighlightSmall",
+  "GameFontHighlightLarge",
+  "NumberFontNormal",
+  "NumberFontNormalSmall",
+  "SystemFont_Shadow_Large",
+  "SystemFont_Shadow_Med1",
+  "StaticPopup_Show",
+  "StaticPopup_Hide",
+  "InterfaceOptionsFrame_OpenToCategory",
+  "Settings",
+  "PlaySound",
+  "PlaySoundFile",
+  "StopSound",
+  "SOUNDKIT",
+  "DEFAULT_CHAT_FRAME",
+  "ChatFrame1",
+  "PetBattleFrame",
+  "PetBattleQueueReadyFrame",
+  
+  -- Dropdown Menu API
+  "UIDropDownMenu_Initialize",
+  "UIDropDownMenu_CreateInfo",
+  "UIDropDownMenu_AddButton",
+  "UIDropDownMenu_AddSeparator",
+  "ToggleDropDownMenu",
+  "CloseDropDownMenus",
+  "UIDROPDOWNMENU_OPEN_MENU",
+  "GetMouseButtonClicked",
+  
+  -- ==========================================================================
+  -- WOW UNIT/PLAYER API
+  -- ==========================================================================
+  "UnitName",
+  "UnitLevel",
+  "UnitClass",
+  "UnitRace",
+  "UnitSex",
+  "UnitFactionGroup",
+  "UnitGUID",
+  "UnitExists",
+  "UnitIsPlayer",
+  "UnitIsDead",
+  "UnitAffectingCombat",
+  "UnitInParty",
+  "UnitInRaid",
+  "UnitBuff",
+  "UnitDebuff",
+  "GetRealmName",
+  "GetPlayerInfoByGUID",
+  "GetPlayerMapPosition",
+  "GetBestMapForUnit",
+  "IsInInstance",
+  "IsResting",
+  "IsMounted",
+  "IsFlying",
+  "IsSwimming",
+  "IsFalling",
+  "IsIndoors",
+  "IsOutdoors",
+  "InCombatLockdown",
+  "GetBindLocation",
+  "GetRealZoneText",
+  "GetMinimapZoneText",
+  "GetSubZoneText",
+  "GetZoneText",
+  
+  -- ==========================================================================
+  -- WOW QUEST/ACHIEVEMENT API
+  -- ==========================================================================
+  "GetAchievementInfo",
+  "GetAchievementNumCriteria",
+  "GetAchievementCriteriaInfo",
+  "GetAchievementCriteriaInfoByID",
+  "GetAchievementLink",
+  "GetCategoryAchievementPoints",
+  "GetNumQuestLogEntries",
+  "GetQuestLogTitle",
+  "GetQuestLogIndexByID",
+  "GetQuestResetTime",
+  "C_QuestLog",
+  
+  -- ==========================================================================
+  -- WOW MAP/WAYPOINT API
+  -- ==========================================================================
+  "C_Map",
+  "Enum",
+  "TaxiNodeLookupTable",
+  "TaxiFrame",
+  
+  -- ==========================================================================
+  -- WOW ITEM/INVENTORY API
+  -- ==========================================================================
+  "GetItemInfo",
+  "GetItemInfoInstant",
+  "GetItemCount",
+  "GetContainerNumSlots",
+  "GetContainerItemID",
+  "GetContainerItemInfo",
+  "GetContainerItemLink",
+  "GetInventoryItemLink",
+  "GetInventoryItemID",
+  "PickupContainerItem",
+  "UseContainerItem",
+  "EquipItemByName",
+  "ClearCursor",
+  "GetCursorInfo",
+  "CursorHasItem",
+  "PlayerHasToy",
+  
+  -- ==========================================================================
+  -- WOW SPELL/ABILITY API
+  -- ==========================================================================
+  "GetSpellInfo",
+  "GetSpellCooldown",
+  "GetSpellTexture",
+  "IsSpellKnown",
+  "IsUsableSpell",
+  "CastSpellByID",
+  "CastSpellByName",
+  
+  -- ==========================================================================
+  -- WOW BINDING/INPUT API
+  -- ==========================================================================
+  "GetBindingKey",
+  "GetBindingAction",
+  "SetBinding",
+  "SetBindingClick",
+  "GetCurrentBindingSet",
+  "SaveBindings",
+  "IsModifierKeyDown",
+  "IsShiftKeyDown",
+  "IsControlKeyDown",
+  "IsAltKeyDown",
+  "GetCVar",
+  "SetCVar",
+  "GetCVarBool",
+  
+  -- ==========================================================================
+  -- WOW CHAT/COMMUNICATION
+  -- ==========================================================================
+  "SendChatMessage",
+  "ChatEdit_InsertLink",
+  "ChatFrame_AddMessageEventFilter",
+  "ChatTypeInfo",
+  "NORMAL_FONT_COLOR",
+  "HIGHLIGHT_FONT_COLOR",
+  "RED_FONT_COLOR",
+  "GREEN_FONT_COLOR",
+  "YELLOW_FONT_COLOR",
+  "GRAY_FONT_COLOR",
+  "WHITE_FONT_COLOR",
+  "FACTION_BAR_COLORS",
+  "ITEM_QUALITY_COLORS",
+  "RAID_CLASS_COLORS",
+  
+  -- ==========================================================================
+  -- WOW FRAME FUNCTIONS
+  -- ==========================================================================
+  "securecall",
+  "hooksecurefunc",
+  "issecure",
+  "issecurevariable",
+  "RegisterAttributeDriver",
+  "UnregisterAttributeDriver",
+  "RegisterStateDriver",
+  "UnregisterStateDriver",
+  "RegisterUnitWatch",
+  "UnregisterUnitWatch",
+  
+  -- ==========================================================================
+  -- WOW BACKDROP TEMPLATE
+  -- ==========================================================================
+  "BackdropTemplateMixin",
+  "BACKDROP_DIALOG_32_32",
+  "BACKDROP_TOAST_12_12",
+  
+  -- ==========================================================================
+  -- WOW ANIMATION API
+  -- ==========================================================================
+  "AnimationGroup",
+  "Animation",
+  
+  -- ==========================================================================
+  -- WOW MISC
+  -- ==========================================================================
+  "GetLocale",
+  "GetBuildInfo",
+  "GetAddOnInfo",
+  "GetAddOnMetadata",
+  "IsAddOnLoaded",
+  "LoadAddOn",
+  "EnableAddOn",
+  "DisableAddOn",
+  "GetNumAddOns",
+  "debugprofilestop",
+  "debugprofilestart",
+  "geterrorhandler",
+  "seterrorhandler",
+  "debugstack",
+  "debuglocals",
+  "forceinsecure",
+  "scrub",
+  "tostringall",
+  
+  -- ==========================================================================
+  -- WOW CONSTANTS/ENUMS
+  -- ==========================================================================
+  "Enum",
+  "Constants",
+  "CAMERA_TRANSITION_TYPE_IMMEDIATE",
+  "CAMERA_MODIFICATION_TYPE_DISCARD",
+  "CAMERA_MODIFICATION_TYPE_MAINTAIN",
+  "LE_PET_JOURNAL_FILTER_COLLECTED",
+  "LE_PET_JOURNAL_FILTER_NOT_COLLECTED",
+  "LE_SORT_BY_NAME",
+  "LE_SORT_BY_LEVEL",
+  "LE_SORT_BY_RARITY",
+  "LE_SORT_BY_PETTYPE",
+  "NUM_PET_ACTIVE_SLOTS",
+  "MAX_ACCOUNT_MACROS",
+  "BACKPACK_CONTAINER",
+  "NUM_BAG_SLOTS",
+  "INVSLOT_FIRST_EQUIPPED",
+  "INVSLOT_LAST_EQUIPPED",
+  "WOW_PROJECT_ID",
+  "WOW_PROJECT_MAINLINE",
+  "WOW_PROJECT_CLASSIC",
+  "WOW_PROJECT_BURNING_CRUSADE_CLASSIC",
+  "WOW_PROJECT_WRATH_CLASSIC",
+  "WOW_PROJECT_CATACLYSM_CLASSIC",
+  "WOW_PROJECT_MISTS_CLASSIC",
+  "LE_EXPANSION_CLASSIC",
+  "LE_EXPANSION_MISTS_OF_PANDARIA",
+  "PET_TYPE_SUFFIX",
+  "PET_BATTLE_PET_TYPE_PASSIVES",
+  "BATTLEPET_QUALITY_COLORS",
+  "ITEM_QUALITY_COLORS",
+  
+  -- ==========================================================================
+  -- WOW LOCALIZED STRINGS (commonly used)
+  -- ==========================================================================
+  "OKAY",
+  "CANCEL",
+  "ACCEPT",
+  "DECLINE",
+  "YES",
+  "NO",
+  "CLOSE",
+  "UNKNOWN",
+  "NONE",
+  "LEVEL",
+  "NAME",
+  "TYPE",
+  "RARITY",
+  "COLLECTED",
+  "NOT_COLLECTED",
+  "BATTLE_PET_BREED_QUALITY1",
+  "BATTLE_PET_BREED_QUALITY2",
+  "BATTLE_PET_BREED_QUALITY3",
+  "BATTLE_PET_BREED_QUALITY4",
+  "BATTLE_PET_BREED_QUALITY5",
+  "BATTLE_PET_BREED_QUALITY6",
+  "BATTLE_PET_CAGE_TOOLTIP_LEVEL",
+  "BATTLE_PET_NAME_1",
+  "BATTLE_PET_NAME_2",
+  "BATTLE_PET_NAME_3",
+  "BATTLE_PET_NAME_4",
+  "BATTLE_PET_NAME_5",
+  "BATTLE_PET_NAME_6",
+  "BATTLE_PET_NAME_7",
+  "BATTLE_PET_NAME_8",
+  "BATTLE_PET_NAME_9",
+  "BATTLE_PET_NAME_10",
+  
+  -- Pet context menu strings
+  -- Loot/currency format strings
+  "LOOT_ITEM_SELF",
+  "LOOT_ITEM_SELF_MULTIPLE",
+  "CURRENCY_GAINED",
+  "CURRENCY_GAINED_MULTIPLE",
+  
+  -- Pet context menu strings
+  "PET_DISMISS",
+  "BATTLE_PET_SUMMON",
+  "BATTLE_PET_RENAME",
+  "BATTLE_PET_FAVORITE",
+  "BATTLE_PET_UNFAVORITE",
+  "BATTLE_PET_RELEASE",
+  "BATTLE_PET_PUT_IN_CAGE",
+  "BATTLE_PET_PUT_IN_CAGE_SLOTTED",
+  "BATTLE_PET_PUT_IN_CAGE_HEALTH",
+  
+  -- ==========================================================================
+  -- LIBRARIES (HereBeDragons, TomTom, etc.)
+  -- ==========================================================================
+  "LibStub",
+  "HereBeDragons",
+  "TomTom",
+}
+
+-- =============================================================================
+-- PER-FILE OVERRIDES (if needed)
+-- =============================================================================
+
+-- Example: Allow specific globals in test files
+-- files["tests/**/*.lua"] = {
+--   globals = { "describe", "it", "expect" }
+-- }

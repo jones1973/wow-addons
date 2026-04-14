@@ -1,0 +1,6 @@
+<!-- ui/petDetails/files.xml -->
+<Ui>
+    <Include file="infoSection\files.xml"/>
+    <Include file="teamSection\files.xml"/>
+    <Script file="petDetails.lua"/>
+</Ui>
