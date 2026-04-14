@@ -1,0 +1,4 @@
+<!-- ui/petDetails/teamSection/files.xml -->
+<Ui>
+    <Script file="teamSection.lua"/>
+</Ui>

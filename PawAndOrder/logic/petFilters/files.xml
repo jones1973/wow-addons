@@ -1,0 +1,15 @@
+<!-- logic/petFilters/files.xml -->
+<Ui>
+    <!-- Base classes (must load first) -->
+    <Script file="filterType.lua"/>
+    <Script file="filterRegistry.lua"/>
+    <Script file="filterCompiled.lua"/>
+    
+    <!-- Individual filters -->
+    <Include file="filters\files.xml"/>
+    
+    <!-- Consumers (must load after filters) -->
+    <Script file="filterParser.lua"/>
+    <Script file="filterEngine.lua"/>
+    <Script file="petFilters.lua"/>
+</Ui>

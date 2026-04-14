@@ -1,0 +1,12 @@
+## Interface: 20504
+## Title: Grimoire Tracker
+## Notes: Tracks learned, available, and future grimoires for Warlock pets. Highlights recommended purchases at the demon trainer.
+## Author: GrimoireTracker
+## Version: 2.0.0
+## SavedVariablesPerCharacter: GrimoireTrackerDB
+
+Data.lua
+Core.lua
+UI.lua
+Tooltip.lua
+Vendor.lua

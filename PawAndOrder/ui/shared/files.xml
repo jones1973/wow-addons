@@ -1,0 +1,18 @@
+<!-- ui/shared/files.xml -->
+<Ui>
+    <Script file="menuRenderer.lua"/>
+    <Script file="dropdownLegacy.lua"/>
+    <Script file="gradientButton.lua"/>
+    <Script file="searchBox.lua"/>
+    <Script file="dropdown.lua"/>
+    <Script file="tooltips.lua"/>
+    <Script file="actionButton.lua"/>
+    <Script file="infoTip.lua"/>
+    <Script file="dragDropMixin.lua"/>
+    <Script file="dragFeedback.lua"/>
+    <Script file="textBox.lua"/>
+    <Script file="escapeHandler.lua"/>
+    <Script file="contextMenu.lua"/>
+    <Script file="sortControl.lua"/>
+    <Script file="filterTextbox.lua"/>
+</Ui>

@@ -1,0 +1,6 @@
+<!-- logic/abilities/files.xml -->
+<Ui>
+    <Script file="abilityData.lua"/>
+    <Script file="abilityUtils.lua"/>
+    <Script file="abilityTooltips.lua"/>
+</Ui>

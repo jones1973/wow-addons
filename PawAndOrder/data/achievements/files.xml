@@ -1,0 +1,5 @@
+<!-- data/achievements/files.xml -->
+<Ui>
+    <Script file="achievementData.lua"/>
+    <Script file="achievements.lua"/>
+</Ui>

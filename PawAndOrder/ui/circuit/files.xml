@@ -1,0 +1,7 @@
+<!-- ui/circuit/files.xml -->
+<Ui>
+    <Script file="circuitLog.lua"/>
+    <Script file="circuitTracker.lua"/>
+    <Script file="circuitSummary.lua"/>
+    <Script file="circuitPopup.lua"/>
+</Ui>

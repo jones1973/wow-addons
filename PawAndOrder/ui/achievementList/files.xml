@@ -1,0 +1,7 @@
+<!-- ui/achievementList/files.xml -->
+<Ui>
+    <Script file="achRow.lua"/>
+    <Script file="achHeader.lua"/>
+    <Script file="achFilters.lua"/>
+    <Script file="achievementList.lua"/>
+</Ui>
