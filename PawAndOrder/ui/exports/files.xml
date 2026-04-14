@@ -1,4 +1,0 @@
-<!-- ui/exports/files.xml -->
-<Ui>
-    <Script file="exportWindow.lua"/>
-</Ui>

@@ -1,8 +1,0 @@
-<!-- ui/petList/infoPanel/files.xml -->
-<Ui>
-    <Script file="infoPanel.lua"/>
-    <Script file="counterProvider.lua"/>
-    <Script file="binaryProvider.lua"/>
-    <Script file="levelProvider.lua"/>
-    <Script file="battleStoneProvider.lua"/>
-</Ui>

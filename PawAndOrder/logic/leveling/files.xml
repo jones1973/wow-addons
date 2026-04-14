@@ -1,5 +1,0 @@
-<!-- logic/leveling/files.xml -->
-<Ui>
-    <Script file="levelingLogic.lua"/>
-    <Script file="levelingCelebration.lua"/>
-</Ui>

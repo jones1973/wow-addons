@@ -1,5 +1,0 @@
-<!-- core/exports/files.xml -->
-<Ui>
-    <Script file="exportFormatter.lua"/>
-    <Script file="exports.lua"/>
-</Ui>

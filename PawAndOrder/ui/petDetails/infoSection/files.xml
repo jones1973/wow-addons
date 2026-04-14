@@ -1,5 +1,0 @@
-<!-- ui/petDetails/infoSection/files.xml -->
-<Ui>
-    <Script file="infoSection.lua"/>
-    <Script file="sourceTooltip.lua"/>
-</Ui>
