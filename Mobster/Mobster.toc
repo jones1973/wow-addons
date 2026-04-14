@@ -1,7 +1,0 @@
-## Interface: 20505
-## Title: Mobster
-## Notes: Find, mark, and alert on mobs by partial name match
-## SavedVariablesPerCharacter: MobsterCharDB
-## Version: 1.0.0
-
-Mobster.lua
