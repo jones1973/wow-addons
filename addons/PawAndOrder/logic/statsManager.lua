@@ -384,7 +384,8 @@ if Addon.registerModule then
     end)
     
     
-    -- Track queue start/end transitions for duration measurement and event log
+    -- Track queue state transitions for duration measurement and event log
+    local lastQueueState = nil
     events:subscribe("PET_BATTLE_QUEUE_STATUS", function()
       local queueState, _, queuedTime = C_PetBattles.GetPVPMatchmakingInfo()
       local isQueued = (queueState == "queued" or queueState == "proposal" or queueState == "suspended")
@@ -401,8 +402,16 @@ if Addon.registerModule then
         end
         logQueueEvent("Left queue")
         cachedQueueStartTime = 0
+      elseif isQueued and wasQueued and queueState ~= lastQueueState then
+        -- State changed while still queued (e.g. proposal -> queued = expired/declined)
+        if lastQueueState == "proposal" and queueState == "queued" then
+          logQueueEvent("Back in queue")
+        elseif queueState == "suspended" then
+          logQueueEvent("Queue suspended")
+        end
       end
       
+      lastQueueState = queueState
       wasQueued = isQueued
     end)
     
@@ -417,6 +426,13 @@ if Addon.registerModule then
     
     events:subscribe("PET_BATTLE_QUEUE_PROPOSAL_DECLINED", function()
       logQueueEvent("Opponent declined")
+    end)
+    
+    -- Catch UI error messages for queue events (timeout, decline text, etc.)
+    events:subscribe("UI_ERROR_MESSAGE", function(_, _, msg)
+      if msg and msg:find("[Pp]et [Bb]attle") then
+        logQueueEvent(msg)
+      end
     end)
     
     -- Auto-requeue after loading screen from world transfer completes
