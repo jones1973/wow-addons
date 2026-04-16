@@ -3,10 +3,12 @@
 ## Notes: Shows your current movement speed as a percentage. Normal run = 100%. LDB support.
 ## Author: Brad
 ## Version: 3.0.0
-## SavedVariables: SpeedDB
+## SavedVariables: speed_settings
 
+## External libraries
 libs\LibStub\LibStub.lua
 libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
 libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
-Speed.lua
+## Application entry point
+main.lua

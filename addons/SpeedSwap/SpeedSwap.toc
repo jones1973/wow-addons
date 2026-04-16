@@ -1,0 +1,14 @@
+## Interface: 20505
+## Title: SpeedSwap
+## Notes: Auto-equips mount speed gear on mount, restores on dismount. Swim belt support.
+## Author: Brad
+## Version: 1.0.0
+## SavedVariablesPerCharacter: speedswap_character
+
+## Logic (gear swap, state detection, commands)
+logic\gearSwap.lua
+logic\gearState.lua
+logic\commands.lua
+
+## Application entry point
+main.lua
