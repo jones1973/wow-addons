@@ -13,6 +13,20 @@ if not Addon.utils then
 end
 
 -- ============================================================================
+-- SHARED MODULE CONFIGURATION (file-load time, before ADDON_LOADED)
+-- Shared modules (options, tabs, errorHandler, commands) are addon-agnostic.
+-- persistence.lua holds PAO's defaults/categories and the slash prefix.
+-- ============================================================================
+
+if Addon.persistence and Addon.persistence.configureOptions then
+    Addon.persistence:configureOptions()
+end
+
+if Addon.commands and Addon.commands.setSlash then
+    Addon.commands:setSlash("pao")
+end
+
+-- ============================================================================
 -- SAVEDVARIABLE REGISTRATION
 -- Declare all SVs with version and default factory.
 -- Version bump = stale data wiped on next login (development behavior).
@@ -58,17 +72,21 @@ evt:SetScript("OnEvent", function(self, event, arg1)
         svr:initializeAll("pao_tools")
     end
 
-    -- Expose settings in a predictable place for the whole addon
-    Addon.db = pao_settings
+    -- Step 2: Attach shared modules to PAO's SavedVariables.
+    -- Hydrates options from pao_settings, tabs from pao_settings.tabs,
+    -- flushes errorHandler buffer to pao_tools.errors.
+    -- Must happen AFTER SV init and BEFORE module init.
+    if Addon.persistence and Addon.persistence.attach then
+        Addon.persistence:attach()
+    end
 
-    -- Step 2: Initialize all modules synchronously.
+    -- Step 3: Initialize all modules synchronously.
     -- All files are loaded by now (WoW loads .toc synchronously before
     -- firing ADDON_LOADED), so every registerModule call has already run.
-    -- options:initialize() runs as part of this and fills pao_settings defaults.
     if Addon.dependency and Addon.dependency.initializeAllModules then
         Addon.dependency.initializeAllModules()
     else
-        print("|cff33ff99PAO|r: |cffff4444Dependency system not available|r")
+        print("|cffff4444Error - Dependency system not available|r")
     end
 
     self:UnregisterEvent("ADDON_LOADED")

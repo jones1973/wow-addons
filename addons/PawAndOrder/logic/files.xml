@@ -1,11 +1,7 @@
 <!-- logic/files.xml -->
 <Ui>
-    <Script file="constants.lua"/>
-	<Script file="familyUtils.lua"/>
-	<Script file="uiUtils.lua"/>
-	<Script file="modelFactory.lua"/>
-	<Script file="entityCommitter.lua"/>
-	<Script file="entityDetector.lua"/>
+    <Script file="persistence.lua"/>
+    <Script file="builtinCommands.lua"/>
     <Script file="tooltipParser.lua"/>
     <Script file="petSorting.lua"/>
     <Script file="petUtils.lua"/>

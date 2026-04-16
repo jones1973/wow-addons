@@ -1,23 +1,23 @@
 --[[
-  core/tabs.lua
+  core/tabs.lua (shared)
   Tab Registration and State Management System
   
-  Provides a centralized registration system for UI tabs. Modules register
-  their tabs during initialization, and the tab bar queries this registry
-  to render available tabs.
+  Holds tab registry and enabled-state in memory. SavedVariable persistence
+  is handled by an addon-specific adapter that:
+    - Calls tabs:setInitialStates(table) before module init (hydration)
+    - Subscribes to TABS:STATE_CHANGED to persist changes
   
   Features:
     - Order-based sorting
     - Dynamic enable/disable per tab
-    - Settings persistence for hidden tabs
     - Event-driven state changes
     - Content frame management
   
   Events Emitted:
-    - TABS:REGISTERED      - New tab registered
-    - TABS:STATE_CHANGED   - Tab enabled/disabled
-    - TABS:SELECTED        - Tab selection changed (immediate)
-    - TABS:CONTENT_SHOWN   - Tab content visible and laid out (deferred one frame)
+    - TABS:REGISTERED      - New tab registered { id, name }
+    - TABS:STATE_CHANGED   - Tab enabled/disabled { id, enabled }
+    - TABS:SELECTED        - Tab selection changed { id, name }
+    - TABS:CONTENT_SHOWN   - Tab content visible (deferred one frame) { id, name, frame }
   
   Dependencies: events, utils
   Exports: Addon.tabs
@@ -34,7 +34,7 @@ local sortedTabs = nil        -- Cached sorted array, invalidated on register
 local currentTabId = nil      -- Currently selected tab ID
 local contentArea = nil       -- Parent frame for all tab content
 local initialized = false
-local sessionTabStates = nil  -- Snapshot of tab states at startup (survives pao_settings changes)
+local tabStates = {}          -- id -> boolean; populated by setInitialStates
 
 -- Module references (resolved at init)
 local events, utils
@@ -65,54 +65,72 @@ local function invalidateSortCache()
 end
 
 --[[
-  Get setting key for tab visibility.
-  @param tabId string
-  @return string
-]]
-local function getSettingKey(tabId)
-    return "tab_" .. tabId .. "_enabled"
-end
-
---[[
-  Check if tab is enabled in settings.
-  Uses sessionTabStates snapshot to ignore runtime changes to pao_settings.tabs.
+  Check if tab is enabled.
+  Uses tabStates (hydrated by adapter via setInitialStates) with fallback to config default.
   @param tabId string
   @return boolean
 ]]
-local function isTabEnabledInSettings(tabId)
+local function isTabEnabled(tabId)
     local config = registry[tabId]
     if not config then
         return false
     end
     
-    -- Always-enabled tabs ignore settings
+    -- Always-enabled tabs ignore state
     if config.alwaysEnabled then
         return true
     end
     
-    -- Check session snapshot (captured at startup, ignores runtime changes)
-    if sessionTabStates and sessionTabStates[tabId] ~= nil then
-        return sessionTabStates[tabId]
+    -- Check hydrated state
+    if tabStates[tabId] ~= nil then
+        return tabStates[tabId]
     end
     
-    -- Fall back to default (tab registered after snapshot taken)
+    -- Fall back to config default
     return config.default ~= false
 end
 
 --[[
-  Save tab enabled state to settings.
+  Save tab enabled state to in-memory store.
+  The adapter subscribes to TABS:STATE_CHANGED to persist.
   @param tabId string
   @param enabled boolean
 ]]
 local function saveTabEnabledState(tabId, enabled)
-    if not pao_settings then pao_settings = {} end
-    if not pao_settings.tabs then pao_settings.tabs = {} end
-    pao_settings.tabs[tabId] = enabled
+    tabStates[tabId] = enabled
 end
 
 -- ============================================================================
 -- PUBLIC API
 -- ============================================================================
+
+--[[
+  Set initial tab enabled states (hydration).
+  Called by the adapter before module init to restore saved states.
+  Tabs registered later that aren't in this map fall back to their config default.
+  
+  @param states table - { [tabId] = boolean, ... }
+]]
+function tabs:setInitialStates(states)
+    tabStates = {}
+    for id, enabled in pairs(states or {}) do
+        tabStates[id] = enabled
+    end
+end
+
+--[[
+  Get a snapshot of current tab states.
+  Used by adapter to persist after changes.
+  
+  @return table - { [tabId] = boolean, ... }
+]]
+function tabs:getStates()
+    local snapshot = {}
+    for id, enabled in pairs(tabStates) do
+        snapshot[id] = enabled
+    end
+    return snapshot
+end
 
 --[[
   Register a tab.
@@ -202,7 +220,7 @@ function tabs:getEnabled()
         -- Filter cached list for currently enabled
         local enabled = {}
         for _, tab in ipairs(sortedTabs) do
-            if isTabEnabledInSettings(tab.id) then
+            if isTabEnabled(tab.id) then
                 table.insert(enabled, tab)
             end
         end
@@ -221,7 +239,7 @@ function tabs:getEnabled()
     -- Filter for enabled
     local enabled = {}
     for _, tab in ipairs(sortedTabs) do
-        if isTabEnabledInSettings(tab.id) then
+        if isTabEnabled(tab.id) then
             table.insert(enabled, tab)
         end
     end
@@ -241,7 +259,7 @@ function tabs:getAll()
         for k, v in pairs(config) do
             entry[k] = v
         end
-        entry.enabled = isTabEnabledInSettings(config.id)
+        entry.enabled = isTabEnabled(config.id)
         table.insert(all, entry)
     end
     table.sort(all, function(a, b)
@@ -265,7 +283,7 @@ end
   @return boolean
 ]]
 function tabs:isEnabled(tabId)
-    return isTabEnabledInSettings(tabId)
+    return isTabEnabled(tabId)
 end
 
 --[[
@@ -284,7 +302,7 @@ function tabs:setEnabled(tabId, enabled)
         return
     end
     
-    local wasEnabled = isTabEnabledInSettings(tabId)
+    local wasEnabled = isTabEnabled(tabId)
     if wasEnabled == enabled then return end
     
     -- Prevent disabling the last enabled tab
@@ -331,7 +349,7 @@ function tabs:select(tabId)
         return false
     end
     
-    if not isTabEnabledInSettings(tabId) then
+    if not isTabEnabled(tabId) then
         return false
     end
     
@@ -513,19 +531,12 @@ function tabs:initialize()
     utils = Addon.utils
     
     if not events then
-        print("|cff33ff99PAO|r: |cffff4444Error - tabs: events not available|r")
+        print("|cffff4444Error - tabs: events not available|r")
         return false
     end
     
-    -- Ensure settings structure exists
-    if not pao_settings then pao_settings = {} end
-    if not pao_settings.tabs then pao_settings.tabs = {} end
-    
-    -- Snapshot current tab states (survives runtime changes to pao_settings.tabs)
-    sessionTabStates = {}
-    for tabId, enabled in pairs(pao_settings.tabs) do
-        sessionTabStates[tabId] = enabled
-    end
+    -- tabStates is populated by adapter via setInitialStates() before init runs.
+    -- Nothing to do here beyond dependency resolution.
     
     initialized = true
     return true

@@ -1,9 +1,29 @@
--- core/commands.lua (add built-in command registration)
-local _, Addon = ...
+--[[
+  core/commands.lua (shared)
+
+  Slash command registration, parsing, dispatch, and help.
+
+  The slash prefix (e.g., "/pao") is set by the addon via commands:setSlash("pao")
+  before the addon shows help text to the user.
+
+  Dependencies: utils
+  Exports: Addon.commands
+]]
+
+local ADDON_NAME, Addon = ...
 local utils = Addon.utils
 
 local commands = {}
 commands._registry = {}
+commands._slash = ADDON_NAME:lower()  -- default; overridden by setSlash
+
+--[[
+  Set the slash prefix shown in help text.
+  @param slash string - the command name, without leading slash (e.g., "pao")
+]]
+function commands:setSlash(slash)
+    self._slash = slash or self._slash
+end
 
 function commands:register(spec)
     assert(spec.command and spec.handler and spec.help and spec.usage,
@@ -28,7 +48,7 @@ function commands:execute(msg)
     
     local spec = self._registry[cmd]
     if not spec then
-        utils:error(("Unknown command '%s'. Type |cFFFFFF00/pao help|r for available commands"):format(cmd))
+        utils:error(("Unknown command '%s'. Type |cFFFFFF00/%s help|r for available commands"):format(cmd, self._slash))
         return
     end
     local parsed = {}
@@ -73,12 +93,13 @@ function commands:showHelp(name)
                 print(("  %s%s %s - %s"):format(spec.command, aliasTxt, usageArgs, spec.help))
             end
         end
-        print("Type |cFFFFFF00/pao help <|cFFFFCC9Acommand|r>|r for details.")
+        print(("Type |cFFFFFF00/%s help <|cFFFFCC9Acommand|r>|r for details."):format(self._slash))
     end
 end
 
 function commands:registerBuiltInCommands()
-    -- Help command
+    -- Help command (generic — works for any addon).
+    -- Addon-specific commands (version, debug, etc.) are registered by the addon.
     self:register({
         command = "help",
         handler = function(args) self:showHelp(args.command) end,
@@ -87,41 +108,11 @@ function commands:registerBuiltInCommands()
         args = {
             {name = "command", required = false, description = "Specific command to get help for"}
         },
-        detailedHelp = [[
-❓ List all commands or show detailed help for one command.
-
-Usage: /pao help
-       /pao help <|cFFFFCC9Acommand|r>
-]],
-        category = "General"
-    })
-    
-    -- Version command
-    self:register({
-        command = "version",
-        handler = function() 
-            print("|cff33ff99PAO|r version 2.1.0 - Battle Pet Assistant")
-        end,
-        help = "Show addon version",
-        usage = "version",
-        detailedHelp = "ℹ️ Display Paw and Order version information.",
-        category = "General"
-    })
-    
-    -- Debug command
-    self:register({
-        command = "debug",
-        handler = function()
-            pao_settings.debugMode = not pao_settings.debugMode
-            utils:notify("Debug mode: " .. (pao_settings.debugMode and "|cff00ff00ON|r" or "|cffff4444OFF|r"))
-        end,
-        help = "Toggle debug mode",
-        usage = "debug",
-        detailedHelp = "🐞 Toggle debugging messages on/off.",
+        detailedHelp = "List all commands or show detailed help for one command.",
         category = "General"
     })
 
-	-- Debug dependencies command
+	-- Debug dependencies command (generic — dependency system is shared).
 	self:register({
 		command = "deps",
 		aliases = {"dependencies"},

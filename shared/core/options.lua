@@ -1,8 +1,31 @@
--- core/options.lua
+--[[
+  core/options.lua (shared)
+
+  In-memory key-value store with defaults, callbacks, and change events.
+  SavedVariable persistence is NOT handled here — an addon-specific adapter
+  subscribes to SETTING:* events and hydrates via options:hydrate().
+
+  Public API:
+    options:setDefaults(table)         -- register default values
+    options:setCategories(table)       -- register category mapping for events
+    options:hydrate(sourceTable)       -- load initial values silently (no callbacks)
+    options:Get(key)                   -- read value, falling back to default
+    options:Set(key, value)            -- write value, fire callbacks and events
+    options:GetAll()                   -- get the full settings table
+    options:GetDefault(key)            -- read the default for a key
+    options:RegisterCallback(key, fn)  -- fn called on every Set of key
+
+  Change events (one per category):
+    SETTING:<CATEGORY>_CHANGED { name, oldValue, newValue, category }
+
+  Dependencies: utils, events (optional — if absent, events are not emitted)
+  Exports: Addon.options
+]]
+
 local ADDON_NAME, Addon = ...
 
 if not Addon.utils then
-    print("|cff33ff99PAO|r: |cffff4444Error - Addon.utils not available in options.lua. This is a critical initialization error.|r")
+    print("|cffff4444Error - Addon.utils not available in options.lua|r")
     return {}
 end
 
@@ -11,169 +34,107 @@ local utils = Addon.utils
 Addon.options = Addon.options or {}
 local options = Addon.options
 
--- Default settings
-local defaults = {
-    showRareByColor = true,
-    showUnowned = false,
-    uiLayout = "tabs",
-    defaultFilterFamily = nil,
-    favoriteList = {},
-    autoSave = true,
-    tooltipDetail = true,
-    showTrainerPopup = true,
-    debugMode = false,
-    -- Recency settings
-    recentPetDays = 14,
-    recentAchievementDays = 14,
-    -- Pet Listing defaults
-    defaultSort = "name",
-    defaultSortDir = "asc",
-    defaultFilterMode = "all",
-    fadeLevelOpacity = true,
-    showNonCombatPets = true,
-    familyIconSaturation = 0.3,
-    showFilterInfoPanels = true,
-    displayMode = "pets",  -- "pets" (flat list) or "species" (grouped by species)
-	-- Pet Battle defaults
-	autoTargetAfterWithdraw = false,
-	wildPetMarkEnabled = true,
-	wildPetMarkMode = "fixed",
-	wildPetMarkIcon = 8,
-	forfeitButtonBehavior = "enhanced",  -- "enhanced", "standard", "disabled"
-	-- Circuit defaults
-	defaultCircuitContinent = 424, -- Pandaria
-	showCircuitOptimization = true,
-	defaultReturnLocation = "none", -- "none", "current", or "questgiver"
-	-- Notification defaults
-	level25Action = "popup",  -- "disabled", "popup", "journal"
-}
--- Define categories as source of truth (maintainable, DRY)
-local settingsByCategory = {
-    listing = {
-        "defaultSort",
-        "defaultSortDir",
-        "defaultFilterMode",
-        "fadeLevelOpacity",
-        "showNonCombatPets",
-        "familyIconSaturation",
-        "showFilterInfoPanels",
-        "displayMode",
-        "familyIconAlpha",
-        "showUnowned",
-    },
-    circuit = {
-        "defaultCircuitContinent",
-        "showCircuitOptimization",
-        "defaultReturnLocation",
-    },
-    battle = {
-        "autoTargetAfterWithdraw",
-        "wildPetMarkEnabled",
-        "wildPetMarkMode",
-        "wildPetMarkIcon",
-        "forfeitButtonBehavior",
-    },
-    general = {
-        "showRareByColor",
-        "uiLayout",
-        "defaultFilterFamily",
-        "favoriteList",
-        "autoSave",
-        "tooltipDetail",
-        "showTrainerPopup",
-        "debugMode",
-        "recentPetDays",
-        "recentAchievementDays",
-    },
-    notifications = {
-        "level25Action",
-    }
-}
+-- Configuration set by the host addon (via setDefaults / setCategories)
+local defaults = {}
+local settingCategories = {}  -- key -> category name
 
--- Build reverse lookup for O(1) access in options:Set()
-local settingCategories = {}
-for category, settings in pairs(settingsByCategory) do
-    for _, setting in ipairs(settings) do
-        settingCategories[setting] = category
-    end
-end
-
--- Callback system
+-- In-memory store
+options.settings = {}
 options.callbacks = {}
 
-function options:initialize()
-    -- pao_settings table created by svRegistry before module init.
-    -- Fill in defaults for any missing keys.
-    for k, v in pairs(defaults) do
-        if pao_settings[k] == nil then
-            pao_settings[k] = v
-        end
-    end
-    
-    -- Development mode: drop legacy migrations entirely
-    self.settings = pao_settings
-    
-    -- Register callback for debug setting
-    self:RegisterCallback("debugMode", function(val)
-        if Addon.utils then
-            Addon.utils:setDebugEnabled(val)
-        end
-    end)
-    
-    -- Immediately apply stored debug setting
-    local stored = self.settings.debugMode
-    self:TriggerCallbacks("debugMode", stored)
+-- ============================================================================
+-- CONFIGURATION (called by addon before hydrate)
+-- ============================================================================
+
+--[[
+  Register default values for settings.
+  Keys present in hydration data override these; missing keys fall back here.
+
+  @param tbl table - { key = defaultValue, ... }
+]]
+function options:setDefaults(tbl)
+    defaults = tbl or {}
 end
 
+--[[
+  Register category mapping for change events.
+  When Set() changes a key in a category, SETTING:<CATEGORY>_CHANGED fires.
+
+  @param tbl table - { categoryName = { "key1", "key2", ... }, ... }
+]]
+function options:setCategories(tbl)
+    settingCategories = {}
+    for category, keys in pairs(tbl or {}) do
+        for _, key in ipairs(keys) do
+            settingCategories[key] = category
+        end
+    end
+end
+
+-- ============================================================================
+-- HYDRATION (called by adapter during ADDON_LOADED, before module init)
+-- ============================================================================
+
+--[[
+  Load initial values from a source table without firing callbacks.
+  Missing keys use registered defaults.
+
+  This MUST run before any code calls Get() or Set(), so callbacks aren't
+  triggered during startup hydration.
+
+  @param source table - typically a SavedVariable contents
+]]
+function options:hydrate(source)
+    source = source or {}
+
+    -- Apply source values directly
+    for k, v in pairs(source) do
+        self.settings[k] = v
+    end
+
+    -- Fill in any missing keys from defaults
+    for k, v in pairs(defaults) do
+        if self.settings[k] == nil then
+            self.settings[k] = v
+        end
+    end
+end
+
+-- ============================================================================
+-- PUBLIC API
+-- ============================================================================
+
 function options:Get(key)
-    if self.settings and self.settings[key] ~= nil then
+    if self.settings[key] ~= nil then
         return self.settings[key]
     end
     return defaults[key]
 end
 
 function options:Set(key, val)
-    if not self.settings then
-        utils:error("self.settings is nil in Set")
-        return
-    end
-    
     if self.settings[key] == val then
         return
     end
-    
+
     local oldVal = self.settings[key]
     self.settings[key] = val
     self:TriggerCallbacks(key, val)
-    
-    -- Fire events for settings changes
+
     if Addon.events then
         local category = settingCategories[key]
         if category then
-            -- Map category to event
-            local categoryEvents = {
-                listing = "SETTING:LISTING_CHANGED",
-                circuit = "SETTING:CIRCUIT_CHANGED",
-                battle = "SETTING:BATTLE_CHANGED",
-                general = "SETTING:GENERAL_CHANGED",
-                notifications = "SETTING:NOTIFICATIONS_CHANGED",
-            }
-            local eventName = categoryEvents[category]
-            
-            if eventName then
-                Addon.events:emit(eventName, {
-                    name = key,
-                    oldValue = oldVal,
-                    newValue = val,
-                    category = category
-                })
-                utils:debug(string.format("Fired event %s for setting %s", tostring(eventName), tostring(key)))
-            end
+            local eventName = "SETTING:" .. category:upper() .. "_CHANGED"
+            Addon.events:emit(eventName, {
+                name = key,
+                oldValue = oldVal,
+                newValue = val,
+                category = category,
+            })
         end
     end
-    
-    utils:debug(string.format("Setting %s: %s -> %s", tostring(key), tostring(oldVal), tostring(val)))
-    utils:debug(string.format("pao_settings.%s = %s", tostring(key), tostring(pao_settings[key])))
+
+    utils:debug(string.format("Setting %s: %s -> %s",
+        tostring(key), tostring(oldVal), tostring(val)))
 end
 
 function options:RegisterCallback(key, fn)
@@ -197,11 +158,20 @@ function options:GetDefault(key)
     return defaults[key]
 end
 
--- Self-register with dependency system
+-- Self-register with dependency system.
+-- The addon's persistence adapter calls setDefaults, setCategories, and
+-- hydrate BEFORE this init runs, so Get/Set are ready from here on.
 if Addon.registerModule then
     Addon.registerModule("options", {"utils"}, function()
-        if options.initialize then
-            return options:initialize()
+        -- Apply debug-setting callback if the addon registered a debugMode key
+        if defaults.debugMode ~= nil then
+            options:RegisterCallback("debugMode", function(val)
+                if Addon.utils and Addon.utils.setDebugEnabled then
+                    Addon.utils:setDebugEnabled(val)
+                end
+            end)
+            -- Apply stored debug setting immediately
+            options:TriggerCallbacks("debugMode", options:Get("debugMode"))
         end
         return true
     end)
