@@ -1,7 +1,19 @@
 ## Interface: 20505
 ## Title: Mobster
 ## Notes: Find, mark, and alert on mobs by partial name match
-## SavedVariablesPerCharacter: MobsterCharDB
+## Author: You
 ## Version: 1.0.0
+## SavedVariablesPerCharacter: mobster_character
+## OptionalDeps: Questie
 
-Mobster.lua
+core\constants.lua
+core\utils.lua
+core\shared\pool.lua
+
+logic\scanner.lua
+
+ui\shared\panel.lua
+ui\typeahead.lua
+ui\watchList.lua
+
+main.lua
