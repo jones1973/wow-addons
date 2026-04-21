@@ -1,4 +1,5 @@
--- Core/utils.lua - SIMPLIFIED COLON NOTATION (NO INTERNAL PAO_ FUNCTIONS)
+-- core/utils.lua (shared)
+-- Debug, chat, formatting, and collection helpers.
 
 local ADDON_NAME, Addon = ...
 
@@ -16,16 +17,13 @@ local debugSettings = {
     fileSpecific = nil -- When set, only this file gets debug output
 }
 
--- Initialize global debug from saved settings
-debugSettings.globalEnabled = (pao_settings and pao_settings.debugMode) or false
-
 ----------------------------------------------------------
 -- SIMPLIFIED PUBLIC API - COLON METHODS ONLY
 ----------------------------------------------------------
 
 function utils:chat(message, useShortName)
-    local prefix = useShortName and "|cff33ff99PAO|r" or "|cff33ff99Paw and Order|r"
-    print(prefix .. " " .. message)
+    local name = useShortName and ADDON_NAME or (Addon.displayName or ADDON_NAME)
+    print("|cff33ff99" .. name .. "|r " .. message)
 end
 
 function utils:debug(message)

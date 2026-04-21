@@ -17,13 +17,12 @@
   Migrations modify only the fields that changed. Data that hasn't changed
   is never touched. The factory only runs on first install.
 
-  Version numbers are stored centrally in pao_tools.svVersions, NOT on
-  individual SVs. This avoids polluting flat key-value SVs (like pao_npc,
-  pao_edgeCasePets) where keys are data and metadata keys would be iterated
-  as data.
+  Version numbers are stored centrally in a tooling SV (e.g., tools.svVersions),
+  NOT on individual SVs. This avoids polluting flat key-value SVs where keys
+  are data and metadata keys would be iterated as data.
 
   Usage:
-    Addon.svRegistry:register("pao_circuit", {
+    Addon.svRegistry:register("myaddon_circuit", {
         version = 3,
         createDefault = function()
             return { active = false, state = "inactive", selectedNpcIds = {} }
@@ -88,7 +87,7 @@ end
   Called once from main.lua's ADDON_LOADED handler, BEFORE module init.
 
   @param versionStoreName string - Name of the tooling SV that holds version data
-                                   (e.g., "pao_tools"). Bootstrapped if nil.
+                                   (e.g., "myaddon_tools"). Bootstrapped if nil.
   @return number, number - changed count, total count
 ]]
 function svRegistry:initializeAll(versionStoreName)

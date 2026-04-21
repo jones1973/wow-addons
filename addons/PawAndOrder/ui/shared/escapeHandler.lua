@@ -30,6 +30,20 @@ local escapeHandler = {}
 -- Active handlers registry (for cleanup)
 local activeHandlers = {}
 
+-- Main frame name for UISpecialFrames management.
+-- Set by the addon via setMainFrame() during init.
+local mainFrameName = nil
+
+--[[
+  Set the main frame name to manage in UISpecialFrames.
+  Call once from the addon's initialization.
+  
+  @param name string - Global frame name (e.g., "PawAndOrderMainFrame")
+]]
+function escapeHandler:setMainFrame(name)
+    mainFrameName = name
+end
+
 --[[
   Create a new escape handler instance
   
@@ -119,11 +133,13 @@ function escapeHandler:create(callbacks)
         frame:SetPropagateKeyboardInput(true)
         frame:Show()
         
-        -- Temporarily remove PAO from UISpecialFrames (prevent ESC from closing window)
-        for i = #UISpecialFrames, 1, -1 do
-            if UISpecialFrames[i] == "PawAndOrderMainFrame" then
-                table.remove(UISpecialFrames, i)
-                break
+        -- Temporarily remove main frame from UISpecialFrames (prevent ESC from closing window)
+        if mainFrameName then
+            for i = #UISpecialFrames, 1, -1 do
+                if UISpecialFrames[i] == mainFrameName then
+                    table.remove(UISpecialFrames, i)
+                    break
+                end
             end
         end
         
@@ -143,16 +159,18 @@ function escapeHandler:create(callbacks)
         isFirstRelease = false
         frame.wasButtonDown = false
         
-        -- Restore PAO to UISpecialFrames immediately (team section did this)
-        local found = false
-        for i = 1, #UISpecialFrames do
-            if UISpecialFrames[i] == "PawAndOrderMainFrame" then
-                found = true
-                break
+        -- Restore main frame to UISpecialFrames
+        if mainFrameName then
+            local found = false
+            for i = 1, #UISpecialFrames do
+                if UISpecialFrames[i] == mainFrameName then
+                    found = true
+                    break
+                end
             end
-        end
-        if not found then
-            table.insert(UISpecialFrames, "PawAndOrderMainFrame")
+            if not found then
+                table.insert(UISpecialFrames, mainFrameName)
+            end
         end
         
         activeHandlers[instance] = nil

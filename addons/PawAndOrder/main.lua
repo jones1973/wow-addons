@@ -7,8 +7,11 @@ local ADDON_NAME, Addon = ...
 -- Expose addon to global namespace for debugging and external access
 PAO = Addon
 
+-- Addon identity (used by shared modules for display strings)
+Addon.displayName = "Paw and Order"
+
 if not Addon.utils then
-    print("|cff33ff99PAO|r: |cffff4444Error - Addon.utils not available in main.lua. This is a critical initialization error.|r")
+    print("|cffff4444Error - Addon.utils not available in main.lua.|r")
     return
 end
 
@@ -24,6 +27,10 @@ end
 
 if Addon.commands and Addon.commands.setSlash then
     Addon.commands:setSlash("pao")
+end
+
+if Addon.escapeHandler and Addon.escapeHandler.setMainFrame then
+    Addon.escapeHandler:setMainFrame("PawAndOrderMainFrame")
 end
 
 -- ============================================================================

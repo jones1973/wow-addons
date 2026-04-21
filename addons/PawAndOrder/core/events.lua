@@ -236,7 +236,7 @@ function events:debug()
         if utils then
             utils:chat(msg, true)
         else
-            print("PAO: " .. msg)
+            print(ADDON_NAME .. ": " .. msg)
         end
     end
     
