@@ -1,0 +1,5 @@
+<!-- ui/shared/files.xml -->
+<Ui>
+    <Script file="textBox.lua"/>
+    <Script file="escapeHandler.lua"/>
+</Ui>

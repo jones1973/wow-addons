@@ -1,0 +1,23 @@
+<!-- logic/files.xml -->
+<Ui>
+    <!-- Helpers with no internal dependencies load first -->
+    <Script file="linkKey.lua"/>
+    <Script file="equipCheck.lua"/>
+
+    <!-- Integrations with external addons -->
+    <Script file="pawnIntegration.lua"/>
+    <Script file="auctionatorIntegration.lua"/>
+
+    <!-- Sorting and filtering -->
+    <Script file="sort.lua"/>
+
+    <!-- Scan + eval pipeline -->
+    <Script file="scan.lua"/>
+    <Script file="eval.lua"/>
+
+    <!-- Event-driven debug logging -->
+    <Script file="diagnostics.lua"/>
+
+    <!-- Built-in commands -->
+    <Script file="builtinCommands.lua"/>
+</Ui>

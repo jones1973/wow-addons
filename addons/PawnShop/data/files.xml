@@ -1,0 +1,12 @@
+<!-- data/files.xml -->
+<Ui>
+    <!-- Constants first (everything may reference them) -->
+    <Script file="constants.lua"/>
+
+    <!-- Static data tables -->
+    <Script file="classProficiency.lua"/>
+    <Script file="slotOrder.lua"/>
+
+    <!-- Settings defaults (consumed by persistence.lua) -->
+    <Script file="settingDefaults.lua"/>
+</Ui>
