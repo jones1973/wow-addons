@@ -37,15 +37,35 @@ function commands:register(spec)
 end
 
 function commands:execute(msg)
-    local args = {}
-    for word in msg:gmatch("%S+") do table.insert(args, word) end
+    -- Use the shared tokenizer so quoted multi-word args and shift-
+    -- clicked item links survive as single tokens. The raw %S+ split
+    -- this replaced would shred an item link at the space inside the
+    -- [Item Name] bracket, making link-argument commands (like
+    -- /ps pawn) impossible.
+    local args = utils:tokenize(msg or "")
+
+    -- tokenize preserves the surrounding quote characters on quoted
+    -- tokens (so callers can tell "was this quoted?"). Command handlers
+    -- don't want to see those quotes -- `args.name = 'Ring of Foo'` is
+    -- what they'd expect, not `args.name = '"Ring of Foo"'`. Strip
+    -- matching surrounding quotes here at the command-dispatch layer.
+    for i, tok in ipairs(args) do
+        if #tok >= 2 then
+            local first = tok:sub(1, 1)
+            local last  = tok:sub(-1)
+            if (first == '"' or first == "'") and first == last then
+                args[i] = tok:sub(2, -2)
+            end
+        end
+    end
+
     local cmd = table.remove(args, 1)
-    
+
     if not cmd or cmd == "" then
         self:showHelp()
         return
     end
-    
+
     local spec = self._registry[cmd]
     if not spec then
         utils:error(("Unknown command '%s'. Type |cFFFFFF00/%s help|r for available commands"):format(cmd, self._slash))

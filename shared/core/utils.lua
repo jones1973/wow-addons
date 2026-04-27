@@ -234,63 +234,106 @@ function utils:truncate(text, len)
 end
 
 --[[
-  Tokenize text into words, preserving quoted strings as single tokens.
-  Handles both single and double quotes.
-  
+  Tokenize text into words, preserving quoted strings as single tokens
+  and preserving WoW item links as single tokens regardless of the
+  whitespace inside the [Item Name] bracket portion.
+
+  Handles both single and double quotes. Item links are recognized by
+  the pattern `|cXXXXXXXX|Hitem:...|h[...]|h|r` (color code + hyperlink
+  envelope). When the scanner encounters this pattern at the current
+  position, it consumes the entire link as one token, bypassing the
+  normal whitespace-split rules.
+
   @param text string - Text to tokenize
   @return table - Array of tokens
-  
-  Example:
+
+  Examples:
     tokenize('beast "snow cub" rare') -> {"beast", '"snow cub"', "rare"}
+    tokenize('pawn |cff9d9d9d|Hitem:1234::::::::::|h[Ring of Foo]|h|r')
+      -> {"pawn", "|cff9d9d9d|Hitem:1234::::::::::|h[Ring of Foo]|h|r"}
 ]]
 function utils:tokenize(text)
     if not text or text == "" then
         return {}
     end
-    
+
     local tokens = {}
     local i = 1
     local len = #text
-    
+
+    --[[
+      Try to match a WoW item link starting at position i. Returns the
+      link as a string and the position one past its end, or nil if the
+      text at i isn't the start of a link.
+
+      The pattern is anchored to the current position and intentionally
+      greedy about the inner `[...]` bracket (which is the only place
+      an item-link legitimately contains whitespace). Terminator is the
+      sequence `|h|r`.
+    ]]
+    local function matchItemLinkAt(pos)
+        -- Must start with |c + 8 hex chars.
+        if text:sub(pos, pos + 1) ~= "|c" then return nil end
+        local hex = text:sub(pos + 2, pos + 9)
+        if not hex:match("^%x%x%x%x%x%x%x%x$") then return nil end
+
+        -- Next must be |Hitem:
+        if text:sub(pos + 10, pos + 16) ~= "|Hitem:" then return nil end
+
+        -- Find the terminating |h|r after a |h[...]|h sequence.
+        -- Anchor the pattern to pos so we match from the current position.
+        local s, e = text:find("|h%[[^%]]*%]|h|r", pos + 16)
+        if not s then return nil end
+        return text:sub(pos, e), e + 1
+    end
+
     while i <= len do
-        -- Skip whitespace
+        -- Skip whitespace between tokens.
         while i <= len and text:sub(i, i):match("%s") do
             i = i + 1
         end
-        
         if i > len then break end
-        
-        local token = ""
-        local inQuote = false
-        local quoteChar = nil
-        
-        while i <= len do
-            local char = text:sub(i, i)
-            
-            if inQuote then
-                token = token .. char
-                i = i + 1
-                if char == quoteChar then
-                    inQuote = false
+
+        -- Item-link check BEFORE the generic token-building loop, so the
+        -- `|H...|h[Name With Spaces]|h|r` structure is consumed as one
+        -- token without the inner space triggering a token boundary.
+        local link, nextPos = matchItemLinkAt(i)
+        if link then
+            table.insert(tokens, link)
+            i = nextPos
+        else
+            local token = ""
+            local inQuote = false
+            local quoteChar = nil
+
+            while i <= len do
+                local char = text:sub(i, i)
+
+                if inQuote then
+                    token = token .. char
+                    i = i + 1
+                    if char == quoteChar then
+                        inQuote = false
+                    end
+                elseif char == '"' or char == "'" then
+                    inQuote = true
+                    quoteChar = char
+                    token = token .. char
+                    i = i + 1
+                elseif char:match("%s") then
+                    break
+                else
+                    token = token .. char
+                    i = i + 1
                 end
-            elseif char == '"' or char == "'" then
-                inQuote = true
-                quoteChar = char
-                token = token .. char
-                i = i + 1
-            elseif char:match("%s") then
-                break
-            else
-                token = token .. char
-                i = i + 1
+            end
+
+            if token ~= "" then
+                table.insert(tokens, token)
             end
         end
-        
-        if token ~= "" then
-            table.insert(tokens, token)
-        end
     end
-    
+
     return tokens
 end
 
