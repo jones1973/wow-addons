@@ -28,13 +28,13 @@
                       end,
 
         filterable     = true,
-        filterValue    = function() return options:Get("levelTolerance") end,
-        filterCommit   = function(v) options:SetCharacter("levelTolerance", v) end,
+        filterValue    = function() return options:Get("levelCap") end,
+        filterCommit   = function(v) options:Set("levelCap", v) end,
         isFilterActive = function(v) return v and v > 1 end,
         popup = {
             kind        = "number",
-            placeholder = "Level tolerance",
-            min = 0, max = 100,
+            placeholder = "Level cap",
+            min = 1, max = 100,
         },
 
         style = Addon.header.styles.BASIC,   -- optional; defaults to BASIC

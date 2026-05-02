@@ -60,8 +60,8 @@ local DEFAULTS = {
 }
 
 local STYLE = {
-    bgColor = {0.05, 0.05, 0.07, 1.0},        -- Dark, fully opaque
-    bgColorHover = {0.1, 0.1, 0.13, 1.0},
+    bgColor = {0.15, 0.15, 0.18, 1.0},        -- Slightly lighter, fully opaque
+    bgColorHover = {0.2, 0.2, 0.23, 1.0},
     borderColor = {0.5, 0.5, 0.55, 1},        -- Brighter border for visibility
     borderColorHover = {0.6, 0.6, 0.65, 1},
     textColor = {1, 1, 1, 1},
@@ -493,16 +493,6 @@ function dropdown:create(config)
                 config.onChange(value, opt)
             end
         end
-    end
-
-    --[[
-      Update the popup menu width for subsequent openings. The button's
-      own width is unaffected; this only controls how wide the dropdown
-      list renders when opened. Safe to call any time.
-      @param width number - pixel width, or nil to revert to auto-sized
-    ]]
-    function btn:SetMenuWidth(width)
-        config.menuWidth = width
     end
     
     --[[
