@@ -1,0 +1,5 @@
+<!-- ui/shared/style/files.xml -->
+<Ui>
+    <Include file="strategy\files.xml"/>
+    <Script file="style.lua"/>
+</Ui>

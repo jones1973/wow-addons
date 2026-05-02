@@ -6,9 +6,6 @@
     <!-- Panel + rows + headers + scroll -->
     <Script file="panel.lua"/>
 
-    <!-- Filter popup (anchored to panel's right edge) -->
-    <Script file="filterPopup.lua"/>
-
     <!-- AH tab wiring -->
     <Script file="ahTab.lua"/>
 </Ui>

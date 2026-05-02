@@ -120,6 +120,159 @@ function pawnIntegration:getScaleValues(link, scaleNames)
     return byScale, nil, item
 end
 
+--[[
+  Score a synthetic "2H" formed by merging the stats of a MH 1H and an
+  OH 1H. Used by pair synthesis (eval.lua synthesizePairs) so the pair
+  is valued by Pawn's full PawnGetItemValue pipeline rather than as a
+  naive sum of two single-item scores.
+
+  Why this matters:
+    Pawn scales can be non-purely-additive. Examples:
+      - SpeedBaseline subtracts a baseline from weapon speed before
+        applying its weight. Summing two pre-baseline scores
+        double-subtracts the baseline; merging stats first applies it
+        once, which is what Pawn intends.
+      - Unusable-stat traps (ScaleValues[stat] <= PawnIgnoreStatValue)
+        zero the whole item. Single-item scores already handle this,
+        but merging means a forbidden stat on either weapon zeros the
+        synthetic pair -- a stricter, more honest verdict.
+      - Stat caps (rare in user scales, more common in mainline) get
+        applied to combined totals.
+
+    For pure linear caster scales (typical for spell-power scales),
+    merged result equals additive sum -- no behavioral difference. The
+    synthetic-stats path is a no-op for those callers. It's correctness
+    insurance for the cases where the scale isn't purely additive.
+
+  @param mhLink string - main-hand item link
+  @param ohLink string - off-hand item link
+  @param scaleNames table - array of internal scale names to score against
+  @return table|nil, string|nil
+          byScale[internalScaleName] = combined value (0 if scale doesn't apply)
+          nil, "no_pawn"  - Pawn API missing
+          nil, "pending"  - One or both items don't have Pawn data yet
+]]
+function pawnIntegration:getCombinedScaleValues(mhLink, ohLink, scaleNames)
+    if not PawnGetItemData or not PawnGetItemValue then
+        return nil, "no_pawn"
+    end
+    local mh = PawnGetItemData(mhLink)
+    local oh = PawnGetItemData(ohLink)
+    if not mh or not oh then return nil, "pending" end
+
+    -- Merge the unenchanted stats tables -- summing per-stat keys. Pawn's
+    -- Stats field is a {[statName] = quantity} map. Two items with the
+    -- same stat have their quantities added; a stat present on only one
+    -- carries through unchanged.
+    --
+    -- We use UnenchantedStats (the base item without temp enchants /
+    -- buffs) for parity with how PawnGetSingleValueFromItem's "value"
+    -- return is fed elsewhere -- consistent baseline keeps comparisons
+    -- honest. (Pawn's Stats and UnenchantedStats are typically the same
+    -- on AH-listed items since they're not enchanted yet.)
+    local combinedStats = {}
+    local mhStats = mh.UnenchantedStats or mh.Stats or {}
+    local ohStats = oh.UnenchantedStats or oh.Stats or {}
+    for stat, qty in pairs(mhStats) do
+        combinedStats[stat] = (combinedStats[stat] or 0) + qty
+    end
+    for stat, qty in pairs(ohStats) do
+        combinedStats[stat] = (combinedStats[stat] or 0) + qty
+    end
+
+    -- Item level: max of the two. PawnGetItemValue uses level for
+    -- socket-value scaling; for non-socketed weapons (the common case)
+    -- it doesn't matter. Max keeps us conservative on the upside.
+    local combinedLevel = math.max(mh.Level or 0, oh.Level or 0)
+
+    -- Socket bonus stats: same merge as primary stats. Both nil is fine
+    -- (PawnGetItemValue handles nil).
+    local combinedSocketBonus
+    local mhSB = mh.UnenchantedSocketBonusStats or mh.SocketBonusStats
+    local ohSB = oh.UnenchantedSocketBonusStats or oh.SocketBonusStats
+    if mhSB or ohSB then
+        combinedSocketBonus = {}
+        if mhSB then
+            for stat, qty in pairs(mhSB) do
+                combinedSocketBonus[stat] = (combinedSocketBonus[stat] or 0) + qty
+            end
+        end
+        if ohSB then
+            for stat, qty in pairs(ohSB) do
+                combinedSocketBonus[stat] = (combinedSocketBonus[stat] or 0) + qty
+            end
+        end
+    end
+
+    local byScale = {}
+    for _, scaleName in ipairs(scaleNames) do
+        -- DebugMessages=false, NoNormalization=false, NoReforging=true
+        -- mirrors how PawnGetSingleValueFromItem invokes it for the
+        -- enchanted-value return.
+        local v = PawnGetItemValue(combinedStats, combinedLevel, combinedSocketBonus,
+                                   scaleName, false, false, true)
+        byScale[scaleName] = v or 0
+    end
+    return byScale
+end
+
+-- ============================================================================
+-- ENABLED SCALES
+-- ============================================================================
+
+--[[
+  Returns the list of Pawn scales currently visible (enabled) for THIS
+  character, sorted alphabetically by localized name.
+
+  Pawn's PawnGetAllScalesEx returns every scale Pawn knows about, including
+  ones the player has hidden. We filter to IsVisible == true so callers
+  see only the user's active set. Each character has independent visibility
+  state -- a Druid's enabled scales differ from the same account's Mage.
+
+  Used by the side panel to populate the filter-scale and companion-scale
+  dropdowns. Called at scan time (eval:start) and on first AH open before
+  any scan -- it's cheap, no caching needed.
+
+  Returns:
+    list, nil     -- array of { internalName, localizedName }, alpha-sorted
+                     by localizedName. May be empty if no scales are visible.
+    nil, "no_pawn" -- Pawn API missing
+    nil, "not_ready" -- Pawn loaded but not initialized yet (early bootstrap)
+]]
+function pawnIntegration:getEnabledScales()
+    if not PawnGetAllScalesEx then
+        return nil, "no_pawn"
+    end
+
+    -- PawnGetAllScalesEx fails internally (VgerCore.Fail) if Pawn isn't
+    -- initialized yet. Wrap in pcall to convert that into a clean
+    -- "not_ready" signal callers can handle.
+    local ok, all = pcall(PawnGetAllScalesEx)
+    if not ok or type(all) ~= "table" then
+        return nil, "not_ready"
+    end
+
+    local out = {}
+    for _, entry in ipairs(all) do
+        if entry.IsVisible then
+            table.insert(out, {
+                internalName  = entry.Name,
+                localizedName = entry.LocalizedName or entry.Name,
+            })
+        end
+    end
+
+    -- Alphabetical by localized name. Pawn's own ordering groups by
+    -- header (e.g., "<character>'s scales", "Wowhead scales") but for
+    -- the visible-only subset all entries share one header anyway, so
+    -- a flat alpha sort is what the user actually sees.
+    table.sort(out, function(a, b)
+        return a.localizedName < b.localizedName
+    end)
+
+    return out, nil
+end
+
 -- ============================================================================
 -- EQUIPPED BASELINE
 -- ============================================================================

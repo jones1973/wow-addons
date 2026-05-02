@@ -6,7 +6,7 @@
   handlers that drive the scan/eval pipeline from AH state:
 
     AUCTION_HOUSE_SHOW       -> create panel+tab, restore scan cache
-    AUCTION_HOUSE_CLOSED     -> cancel any in-flight eval
+    AUCTION_HOUSE_CLOSED     -> cancel any in-flight eval + restore CVar
     AUCTION_ITEM_LIST_UPDATE -> forward to scan:onListUpdate
     GET_ITEM_INFO_RECEIVED   -> forward to eval:scheduleResolve
 
@@ -68,24 +68,56 @@ local function createTab()
                            AuctionFrame, "AuctionTabTemplate")
     tabFrame:SetID(ourID)
     tabFrame:SetText("Pawn Shop")
-    tabFrame:SetNormalFontObject("GameFontHighlightSmall")
+    -- Don't override the template's font objects -- AuctionTabTemplate
+    -- inherits CharacterFrameTabButtonTemplate which sets:
+    --   NormalFont    = GameFontNormalSmall    (gold,  unselected state)
+    --   HighlightFont = GameFontHighlightSmall (white, hover state)
+    --   DisabledFont  = GameFontHighlightSmall (white, "disabled" = active tab)
+    -- Matches the gold/white pattern of stock AH tabs.
     tabFrame:SetPoint("LEFT", lastTab, "RIGHT", -8, 0)
+
+    -- Resize the tab texture to fit our label. Blizzard's AuctionTabTemplate
+    -- uses a fixed-width texture by default; without this call, "Pawn Shop"
+    -- (longer than the built-in tab labels like "Browse", "Bid", "Auctions")
+    -- overflows the tab's left and right edges. PanelTemplates_TabResize
+    -- with a 0 padding argument just tightens the texture around the text.
+    PanelTemplates_TabResize(tabFrame, 0)
+
     PanelTemplates_SetNumTabs(AuctionFrame, ourID)
     PanelTemplates_DeselectTab(tabFrame)
     tabID = ourID
+
+    -- Browse-tab chrome texture set. We swap AH chrome to this on our
+    -- tab activate, matching what Blizzard does in AuctionFrameTab_OnClick
+    -- for the Browse tab. Browse's top is parchment and bottom is dark,
+    -- which lines up with our layout (filter row + headers on parchment,
+    -- table content on dark). Replicates Blizzard's exact behavior so
+    -- the AH frame chrome reflects which tab is active.
+    local function applyOurTabChrome()
+        if AuctionFrameTopLeft  then AuctionFrameTopLeft:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-TopLeft")  end
+        if AuctionFrameTop      then AuctionFrameTop:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-Top")          end
+        if AuctionFrameTopRight then AuctionFrameTopRight:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-TopRight") end
+        if AuctionFrameBotLeft  then AuctionFrameBotLeft:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Browse-BotLeft")   end
+        if AuctionFrameBot      then AuctionFrameBot:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Auction-Bot")          end
+        if AuctionFrameBotRight then AuctionFrameBotRight:SetTexture("Interface\\AuctionFrame\\UI-AuctionFrame-Bid-BotRight")    end
+    end
 
     -- Hook the built-in tab click dispatcher to toggle our panel on/off.
     hooksecurefunc("AuctionFrameTab_OnClick", function(self, _button, _down, index)
         local id = index or (self and self:GetID())
         if id == tabID then
-            -- Our tab clicked: hide Blizzard's content frames, show our panel.
+            -- Our tab clicked: hide Blizzard's content frames, swap
+            -- chrome to Browse's textures, show our panel.
             if AuctionFrameBrowse   then AuctionFrameBrowse:Hide()   end
             if AuctionFrameBid      then AuctionFrameBid:Hide()      end
             if AuctionFrameAuctions then AuctionFrameAuctions:Hide() end
+            applyOurTabChrome()
             panel:show()
             PanelTemplates_SetTab(AuctionFrame, tabID)
         else
-            -- Another tab clicked: hide our panel.
+            -- Another tab clicked: hide our panel. The next tab's
+            -- AuctionFrameTab_OnClick body will swap chrome to its own
+            -- texture set; we don't need to restore anything.
             panel:hide()
         end
     end)
@@ -99,13 +131,17 @@ local function onAuctionHouseShow()
     panel:ensureCreated()
     createTab()
 
-    -- First time we see the AH this session: try to restore cached scan
-    -- data so the grid isn't empty after a reload. Trigger eval on the
-    -- cached set so the user sees results immediately.
-    if #scan:getAuctions() == 0 then
-        local count, _age = scan:restoreFromCache()
-        if count and count > 0 then
-            eval:start()
+    -- Restore cached scan if we have one and eval is empty (first AH
+    -- open this session). Lets the user see the most recent results
+    -- without burning their getAll cooldown.
+    if Addon.persistence and Addon.persistence.restoreScanIfFresh
+       and Addon.eval and Addon.eval.getRows
+       and #(Addon.eval:getRows() or {}) == 0
+    then
+        local restored, scannedAt, visibleScales =
+            Addon.persistence:restoreScanIfFresh()
+        if restored and panel.onScanRestored then
+            panel:onScanRestored(scannedAt, visibleScales)
         end
     end
 end
@@ -114,6 +150,15 @@ local function onAuctionHouseClosed()
     -- Cancel any in-flight eval. Scan is either idle or will complete on
     -- its own (the server-side getAll doesn't care about AH state).
     eval:cancel()
+
+    -- Defensive CVar restore. panel:hide is normally called via the
+    -- AuctionFrameTab_OnClick hook when the user switches tabs, but the
+    -- AH window can close without a tab click (e.g. walking away from
+    -- the auctioneer, reload-ui). Make sure alwaysCompareItems gets put
+    -- back either way so the user's global setting isn't left flipped.
+    if panel.restoreCompareTooltipCVar then
+        panel:restoreCompareTooltipCVar()
+    end
 end
 
 local function onEvent(_, event, arg1)

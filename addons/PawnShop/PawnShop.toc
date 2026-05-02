@@ -4,8 +4,8 @@
 ## Author: Brad Jones
 ## Version: 0.1.0
 ## OptionalDeps: Pawn, Auctionator
-## SavedVariables: ps_settings, ps_tools, ps_scanCache
-## SavedVariablesPerCharacter: ps_character
+## SavedVariables: ps_settings, ps_tools
+## SavedVariablesPerCharacter: ps_character, ps_scanData
 
 ## Core (shared infrastructure)
 core\files.xml

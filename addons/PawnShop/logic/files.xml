@@ -11,6 +11,9 @@
     <!-- Sorting and filtering -->
     <Script file="sort.lua"/>
 
+    <!-- Per-listing observation (time-bucket transition anchors) -->
+    <Script file="listingTracker.lua"/>
+
     <!-- Scan + eval pipeline -->
     <Script file="scan.lua"/>
     <Script file="eval.lua"/>

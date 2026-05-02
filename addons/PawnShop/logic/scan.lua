@@ -3,22 +3,25 @@
   Auction House Scanning
 
   Owns the "Scan All" pipeline end to end: query the server, ingest the
-  batch from the "list" buffer, dedupe by stable link key, persist the
-  result to ps_scanCache for dev-iteration reload-safety.
+  batch from the "list" buffer, dedupe by stable link key.
+
+  Harvests any successful getAll on the AH, regardless of which addon
+  fired it. We hook QueryAuctionItems to detect getAll calls; whether
+  the call came from us or another addon (Auctionator etc.), the server
+  reply lands in the same "list" buffer and we ingest it.
 
   State ownership: this module owns scanState (file-local). Callers read
   via getters; writers go through public methods. Cross-module reactivity
   is via events, not shared state access.
 
   Events emitted:
-    SCAN:STARTED               { }
-    SCAN:AUCTIONS_INGESTED     { count, unique, ingestMs }
+    SCAN:STARTED               { source = "self" | "external" }
+    SCAN:AUCTIONS_INGESTED     { count, unique, ingestMs, source }
     SCAN:CANCELLED             { reason }
-    SCAN:EMPTY                 { } -- server returned 0 items
+    SCAN:EMPTY                 { source }
 
-  Events consumed: none (the ADDON_LOADED restore and AH event wiring
-  happens in ui/ahTab.lua, which calls scan:start / scan:onListUpdate
-  directly).
+  Events consumed: none (the AH event wiring happens in ui/ahTab.lua,
+  which calls scan:onListUpdate; scan:start fires our own getAll).
 
   Dependencies: utils, events, linkKey
   Exports: Addon.scan
@@ -28,49 +31,40 @@ local ADDON_NAME, Addon = ...
 
 local scan = {}
 
--- Module references (resolved in initialize)
 local utils, events, linkKey
 
--- ============================================================================
--- MODULE STATE (owned exclusively by this module)
--- ============================================================================
+-- AH getAll cooldown is 15 minutes per character (TBC Classic).
+local GETALL_COOLDOWN_SECONDS = 15 * 60
 
 local scanState = {
-    -- Array of raw auctions seen in latest scan (order = server order).
-    -- Entry shape: { link, name, count, buyout, owner, timeLeft }
+    -- Array of raw auctions seen in latest scan (server order).
+    -- Entry shape: { link, name, count, buyout, minBid, owner, timeLeft }
     auctions       = {},
 
-    -- Dedup: cheapestByLink[stableKey] = the entry with the lowest buyout
-    -- among all listings sharing that stable link key.
+    -- Dedup: cheapestByLink[stableKey] = lowest-buyout entry for that key.
     cheapestByLink = {},
 
-    -- Flag flipped when we fire the query and cleared on first list-update.
-    -- Used to ignore spurious AUCTION_ITEM_LIST_UPDATE events from AH
-    -- browsing activity we didn't initiate.
-    isScanning     = false,
+    -- True from the moment a getAll query is fired (by us or anyone we
+    -- detect via the QueryAuctionItems hook) until we ingest the reply.
+    -- Cleared on first AUCTION_ITEM_LIST_UPDATE we accept.
+    expectingResults = false,
 
-    -- Timing milestones (ms, from debugprofilestop). Downstream (eval's
-    -- Finalize summary) reads these through scan:getTiming().
+    -- "self" if our scan:start fired the query, "external" if we're
+    -- harvesting another addon's getAll. Used in events for telemetry.
+    pendingSource = nil,
+
     tScanClick     = nil,
     tDataArrived   = nil,
     tIngestDone    = nil,
 }
 
 -- ============================================================================
--- GETTERS (read-only access for other modules)
+-- GETTERS
 -- ============================================================================
 
-function scan:getAuctions()
-    return scanState.auctions
-end
-
-function scan:getCheapestByLink()
-    return scanState.cheapestByLink
-end
-
-function scan:isScanning()
-    return scanState.isScanning
-end
+function scan:getAuctions()       return scanState.auctions end
+function scan:getCheapestByLink() return scanState.cheapestByLink end
+function scan:isScanning()        return scanState.expectingResults end
 
 function scan:getTiming()
     return {
@@ -80,131 +74,87 @@ function scan:getTiming()
     }
 end
 
---[[
-  Count unique entries in cheapestByLink. O(n) over the dedup map.
-  Cached? Not worth it: this is only called at status/summary points.
-  @return number
-]]
 function scan:uniqueCount()
     local n = 0
     for _ in pairs(scanState.cheapestByLink) do n = n + 1 end
     return n
 end
 
--- ============================================================================
--- RESET (called before a new scan, or when scrapping restored data)
--- ============================================================================
+--[[
+  Last successful scan timestamp (UNIX seconds), or nil if never scanned
+  this session. Read from ps_tools so it survives reloads.
+  @return number|nil
+]]
+function scan:getLastScanAt()
+    return ps_tools and ps_tools.lastScanAt or nil
+end
 
 --[[
-  Clear all scan state in place. In-place wipe (not reassignment) so any
-  references other modules hold stay valid.
+  Seconds remaining on the getAll cooldown, or 0 if ready. Computed from
+  ps_tools.lastScanAt; if that's missing or older than the cooldown
+  window, returns 0.
+  @return number
 ]]
+function scan:getCooldownRemaining()
+    local last = self:getLastScanAt()
+    if not last then return 0 end
+    local elapsed = time() - last
+    if elapsed >= GETALL_COOLDOWN_SECONDS then return 0 end
+    return GETALL_COOLDOWN_SECONDS - elapsed
+end
+
+-- ============================================================================
+-- RESET
+-- ============================================================================
+
 function scan:reset()
     wipe(scanState.auctions)
     wipe(scanState.cheapestByLink)
-    scanState.isScanning   = false
+    scanState.expectingResults = false
+    scanState.pendingSource    = nil
     scanState.tScanClick   = nil
     scanState.tDataArrived = nil
     scanState.tIngestDone  = nil
 end
 
 -- ============================================================================
--- RESTORE FROM SAVEDVARIABLE (dev-iteration convenience)
+-- START SCAN (our own getAll)
 -- ============================================================================
 
 --[[
-  Rehydrate scan state from the ps_scanCache SV. Rebuilds the dedup map
-  from the stored auction list using the same stable-key logic as ingest,
-  so a restored scan is indistinguishable from a fresh one at eval time.
-
-  Safe to call when the SV is empty or missing; no-op in that case.
-
-  Returns the age of the restored data in seconds, or nil if nothing
-  restored.
-  @return number|nil, number|nil - (auction count, age seconds)
-]]
-function scan:restoreFromCache()
-    if not ps_scanCache or not ps_scanCache.auctions then return nil end
-    local cached = ps_scanCache.auctions
-    if #cached == 0 then return nil end
-
-    -- Replace auctions in place.
-    wipe(scanState.auctions)
-    for _, entry in ipairs(cached) do
-        table.insert(scanState.auctions, entry)
-    end
-
-    -- Rebuild dedup from restored auctions (stable key, not raw link).
-    wipe(scanState.cheapestByLink)
-    for _, entry in ipairs(scanState.auctions) do
-        if entry.buyout and entry.buyout > 0 then
-            local key = linkKey:compute(entry.link)
-            local existing = scanState.cheapestByLink[key]
-            if not existing or entry.buyout < existing.buyout then
-                scanState.cheapestByLink[key] = entry
-            end
-        end
-    end
-
-    local age = ps_scanCache.scannedAt and (time() - ps_scanCache.scannedAt) or nil
-    return #scanState.auctions, age
-end
-
--- ============================================================================
--- START SCAN
--- ============================================================================
-
---[[
-  Kick off a full-AH "getAll" query.
-
-  Returns one of:
+  Kick off our own getAll query. Returns:
     true            -- query fired
-    false, reason   -- couldn't start; reason is a short string
-
+    false, reason   -- couldn't start
   Reasons: "already_scanning", "ah_closed", "cooldown"
 ]]
 function scan:start()
-    if scanState.isScanning then
-        return false, "already_scanning"
-    end
+    if scanState.expectingResults then return false, "already_scanning" end
     if not AuctionFrame or not AuctionFrame:IsShown() then
         return false, "ah_closed"
     end
 
     local _canQ, canQAll = CanSendAuctionQuery()
-    if not canQAll then
-        return false, "cooldown"
-    end
+    if not canQAll then return false, "cooldown" end
 
-    -- Fresh state for the new scan.
     self:reset()
+    scanState.tScanClick      = debugprofilestop()
+    scanState.expectingResults = true
+    scanState.pendingSource   = "self"
 
-    scanState.tScanClick = debugprofilestop()
-    scanState.isScanning = true
+    events:emit("SCAN:STARTED", { source = "self" })
 
-    events:emit("SCAN:STARTED", {})
-
-    -- The 10-arg QueryAuctionItems with getAll=true is the TBC/MoP-Classic
-    -- "full scan" form: blank name, zero-filter, page 0, getAll=true.
     QueryAuctionItems("", nil, nil, 0, 0, 0, 0, 1, 0, true)
-
     return true
 end
 
 -- ============================================================================
--- CANCEL SCAN
+-- CANCEL
 -- ============================================================================
 
---[[
-  Abort an in-flight scan (e.g., AH closed before data arrived). Does NOT
-  touch auctions/cheapestByLink -- those may contain valid data from a
-  prior completed scan that the UI still wants to show.
-
-  @param reason string|nil
-]]
 function scan:cancel(reason)
-    if not scanState.isScanning then return end
-    scanState.isScanning = false
+    if not scanState.expectingResults then return end
+    scanState.expectingResults = false
+    scanState.pendingSource    = nil
     events:emit("SCAN:CANCELLED", { reason = reason or "unspecified" })
 end
 
@@ -213,53 +163,50 @@ end
 -- ============================================================================
 
 --[[
-  Read every listing from the "list" buffer into scanState.auctions, track
-  the cheapest per stable link key, persist to SV.
-
-  The server occasionally sends a second AUCTION_ITEM_LIST_UPDATE for the
-  same getAll (observed empirically); we clear isScanning immediately to
-  make the second one a no-op and avoid double-ingesting.
-
-  If the batch is empty, emit SCAN:EMPTY and return without clearing
-  auctions. This preserves any prior-scan data for the UI to keep showing.
+  Ingest the AH's "list" buffer into scanState. Called on every
+  AUCTION_ITEM_LIST_UPDATE; only acts when expectingResults is true
+  (i.e., a getAll fired and we haven't ingested yet). Rows where
+  hasAllInfo=false (server hasn't streamed metadata yet) are skipped
+  -- they'll arrive in a subsequent update.
 ]]
 function scan:onListUpdate()
-    -- Silently ignore updates that aren't for our query.
-    if not scanState.isScanning then return end
+    if not scanState.expectingResults then return end
 
-    -- Flip the flag up front so a second fire is a no-op.
-    scanState.isScanning = false
-    scanState.tDataArrived = debugprofilestop()
+    local source = scanState.pendingSource or "external"
+    scanState.expectingResults = false
+    scanState.pendingSource    = nil
+    scanState.tDataArrived     = debugprofilestop()
 
     local batchCount = GetNumAuctionItems("list")
-
     if not batchCount or batchCount == 0 then
-        events:emit("SCAN:EMPTY", {})
+        events:emit("SCAN:EMPTY", { source = source })
         return
     end
 
     local ingestStart = debugprofilestop()
+    local skippedIncomplete = 0
 
     for i = 1, batchCount do
-        local name, _texture, count, _quality, _canUse, _level, _levelCol,
-              _minBid, _minInc, buyout, _bidAmt, _highBidder, _bidderFull,
-              owner = GetAuctionItemInfo("list", i)
+        local name, _texture, _count, _quality, _canUse, _level, _levelCol,
+              minBid, _minInc, buyout, _bidAmt, _highBidder, _bidderFull,
+              owner, _ownerFull, _saleStatus, _itemId, hasAllInfo
+              = GetAuctionItemInfo("list", i)
         local link = GetAuctionItemLink("list", i)
         local timeLeft = GetAuctionItemTimeLeft("list", i)
 
-        if link and name then
+        if not hasAllInfo then
+            skippedIncomplete = skippedIncomplete + 1
+        elseif link and name then
             local entry = {
                 link     = link,
                 name     = name,
-                count    = count or 1,
                 buyout   = buyout or 0,
+                minBid   = minBid or 0,
                 owner    = owner or "?",
                 timeLeft = timeLeft or 0,
             }
             table.insert(scanState.auctions, entry)
 
-            -- Dedup on stable key so auctions that differ only in uniqueID
-            -- collapse to one entry. Only track buyout>0 (skip bid-only).
             if buyout and buyout > 0 then
                 local key = linkKey:compute(link)
                 local existing = scanState.cheapestByLink[key]
@@ -270,19 +217,47 @@ function scan:onListUpdate()
         end
     end
 
+    -- Stamp the cooldown timestamp. Survives reload via ps_tools SV.
+    ps_tools = ps_tools or {}
+    ps_tools.lastScanAt = time()
+
+    -- Per-listing tracking (for time-bucket transitions etc.). The
+    -- listingTracker module holds the map keyed by listing identity;
+    -- it's a no-op if the module isn't loaded.
+    if Addon.listingTracker and Addon.listingTracker.observe then
+        Addon.listingTracker:observe(scanState.auctions)
+    end
+
     local ingestMs = debugprofilestop() - ingestStart
     scanState.tIngestDone = debugprofilestop()
 
-    -- Persist for dev iteration. Reload-safe; survives until next scan.
-    ps_scanCache = ps_scanCache or {}
-    ps_scanCache.auctions  = scanState.auctions
-    ps_scanCache.scannedAt = time()
-
     events:emit("SCAN:AUCTIONS_INGESTED", {
-        count    = #scanState.auctions,
-        unique   = self:uniqueCount(),
-        ingestMs = ingestMs,
+        count             = #scanState.auctions,
+        unique            = self:uniqueCount(),
+        ingestMs          = ingestMs,
+        source            = source,
+        skippedIncomplete = skippedIncomplete,
     })
+end
+
+-- ============================================================================
+-- QUERY HOOK (detect external getAll calls)
+-- ============================================================================
+
+local function installQueryHook()
+    if not QueryAuctionItems then return end
+    hooksecurefunc("QueryAuctionItems", function(_name, _minLvl, _maxLvl, _page,
+                                                _usable, _rarity, _getAllArg1,
+                                                _exact, _filterData, getAll)
+        -- Only care about getAll=true queries; per-page browses don't
+        -- harvest cleanly and aren't what we evaluate against.
+        if not getAll then return end
+        -- If we initiated, scan:start already set pendingSource = "self".
+        if scanState.expectingResults then return end
+        scanState.expectingResults = true
+        scanState.pendingSource    = "external"
+        events:emit("SCAN:STARTED", { source = "external" })
+    end)
 end
 
 -- ============================================================================
@@ -299,6 +274,7 @@ function scan:initialize()
         return false
     end
 
+    installQueryHook()
     return true
 end
 

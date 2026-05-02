@@ -35,6 +35,20 @@ Addon.data.settingDefaults = {
     enabledScales = {},  -- { [internalScaleName] = true, ... }
 
     -- Filters. All account-wide defaults; per-character overrides in ps_character.
+
+    -- The "filter scale" -- the single Pawn scale used to decide which
+    -- rows appear in the panel and what percent the upgrade math is
+    -- computed against. nil means "no choice yet"; on first scan the
+    -- panel auto-selects scaleOrder[1] (the first scale Pawn returned
+    -- upgrades for) and persists it so subsequent sessions stick to it.
+    scale          = nil,
+
+    -- The "companion scale" -- a second scale displayed as an extra
+    -- column alongside the filter scale's column. Decorative: does not
+    -- influence row membership, sorting, or pill scoring. nil means
+    -- "(none)" -- no companion column shown.
+    companionScale = nil,
+
     levelTolerance = 2,     -- show items with minLevel <= playerLevel + N
     minUpgradePct  = 0,     -- hide single-item rows below this %; 0 = no filter
     maxPrice       = 0,     -- hide items with buyout > this; 0 = no filter (in copper)
@@ -48,13 +62,13 @@ Addon.data.settingDefaults = {
 -- CATEGORIES
 -- ============================================================================
 
--- When options:Set(key, v) is called, a SETTING:<CATEGORY>_CHANGED event
--- fires for handlers to react. Modules subscribe to the category they care
--- about rather than every key individually.
+-- When a setting is written via options:SetCharacter or options:SetAccount,
+-- a SETTING:<CATEGORY>_CHANGED event fires for handlers to react. Modules
+-- subscribe to the category they care about rather than every key individually.
 Addon.data.settingCategories = {
     general = { "debugMode" },
     display = { "enabledScales", "sortColumn", "sortDir" },
-    filter  = { "levelTolerance", "minUpgradePct", "maxPrice" },
+    filter  = { "scale", "companionScale", "levelTolerance", "minUpgradePct", "maxPrice" },
 }
 
 return Addon.data.settingDefaults

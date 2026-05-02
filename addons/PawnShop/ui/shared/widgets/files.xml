@@ -1,0 +1,8 @@
+<!-- ui/shared/widgets/files.xml -->
+<Ui>
+    <Script file="textBox.lua"/>
+    <Script file="menuRenderer.lua"/>
+    <Script file="dropdown.lua"/>
+    <Script file="filterTabStrip.lua"/>
+    <Script file="header.lua"/>
+</Ui>

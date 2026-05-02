@@ -1,0 +1,85 @@
+-- /luacheckrc.txt
+--
+-- Repo-wide luacheck config for the jones1973/wow-addons monorepo.
+--
+-- NOTE: This file is named luacheckrc.txt rather than .luacheckrc by
+-- convention in this repo. Luacheck does NOT auto-discover this name --
+-- pass it explicitly:
+--
+--   luacheck --config luacheckrc.txt addons/
+--
+-- Structure:
+--   * Shared Blizzard API surface lives in tools/wow-api.luacheckrc.txt
+--     and applies to every addon.
+--   * Per-addon additions (saved variables, addon-table globals,
+--     domain-specific APIs) live in files[] blocks below. luacheck
+--     treats globals/read_globals in those blocks as ADDITIVE to the
+--     top-level set -- no need to repeat the Blizzard base per addon.
+--
+-- Run from the repo root.
+
+-- =============================================================================
+-- LOAD SHARED BLIZZARD API BASE
+-- =============================================================================
+-- The shared file returns a plain data table. We copy its fields into
+-- the luacheck config sandbox explicitly (dofile-set globals would
+-- bypass the sandbox's special __newindex and get lost).
+
+local base = dofile("tools/wow-api.luacheckrc.txt")
+
+std               = base.std
+max_line_length   = base.max_line_length
+allow_defined_top = base.allow_defined_top
+self              = base.self
+ignore            = base.ignore
+globals           = base.globals
+read_globals      = base.read_globals
+
+-- =============================================================================
+-- PER-ADDON OVERRIDES
+-- =============================================================================
+-- Each addon gets a files[] block. luacheck adds these globals/
+-- read_globals to the top-level sets when checking files matching
+-- the glob.
+
+files["addons/PawnShop/**/*.lua"] = {
+  globals = {
+    "Addon",            -- addon-table global
+    -- Saved variables (see addons/PawnShop/PawnShop.toc)
+    "ps_settings",      -- account-wide options (managed by Addon.options)
+    "ps_tools",         -- account-wide diagnostics (errors, sv versions)
+    "ps_character",     -- per-character overrides
+    "ps_scanData",      -- per-character last-scan cache (eval rows + visible scales)
+    "FormatTimestamp",  -- legacy global exported by core/utils.lua
+    "PS",               -- main.lua exposes Addon as PS for /dump
+  },
+  read_globals = {
+    -- Auction House API (PawnShop-specific, not common enough to share)
+    "AuctionFrame",
+    "AuctionFrameTab_OnClick",
+    "AuctionFrameBrowse",
+    "AuctionFrameBid",
+    "AuctionFrameAuctions",
+    "AuctionFrameTopLeft",
+    "AuctionFrameTop",
+    "AuctionFrameTopRight",
+    "AuctionFrameBotLeft",
+    "AuctionFrameBot",
+    "AuctionFrameBotRight",
+    "QueryAuctionItems",
+    "GetAuctionItemInfo",
+    "GetAuctionItemLink",
+    "GetAuctionItemTimeLeft",
+    "GetNumAuctionItems",
+    "CanSendAuctionQuery",
+
+    -- Pawn API (third-party dependency, listed in PawnShop.toc OptionalDeps)
+    "PawnGetAllScalesEx",
+    "PawnGetItemData",
+    "PawnGetSingleValueFromItem",
+    "PawnGetItemValue",
+    "PawnIsItemAnUpgrade",
+    "PawnIsScaleVisible",
+    "PawnCommon",
+  },
+}

@@ -67,25 +67,40 @@ end
 function persistence:attach()
     self:attachOptions()
     self:attachErrorHandler()
+    self:attachScanData()
 end
 
 --[[
-  Wire Addon.options to ps_settings.
-  Hydrates the in-memory store from the SV, then subscribes to every
-  SETTING:<CATEGORY>_CHANGED event to mirror changes back to the SV.
+  Wire Addon.options to the SVs. Hydrates account-wide values from
+  ps_settings and per-character overrides from ps_character. Subscribes
+  to SETTING:<CATEGORY>_CHANGED events to mirror changes back to the
+  appropriate SV: if a per-character override exists for the changed
+  key, mirror to ps_character; otherwise mirror to ps_settings.
 ]]
 function persistence:attachOptions()
     if not Addon.options or not Addon.events then return end
 
-    ps_settings = ps_settings or {}
-    Addon.options:hydrate(ps_settings)
+    ps_settings  = ps_settings  or {}
+    ps_character = ps_character or {}
+    Addon.options:hydrate({
+        account   = ps_settings,
+        character = ps_character,
+    })
 
     -- Categories defined in data/settingDefaults.lua map to these events.
-    -- One handler per category keeps things explicit and easy to extend.
+    -- After a Set, the new value lives in either charSettings or settings
+    -- inside options. Mirror to the matching SV.
     local categories = { "GENERAL", "DISPLAY", "FILTER" }
     for _, category in ipairs(categories) do
         Addon.events:subscribe("SETTING:" .. category .. "_CHANGED", function(_, payload)
-            ps_settings[payload.name] = payload.newValue
+            local key = payload.name
+            local charVal = Addon.options:GetCharacter(key)
+            if charVal ~= nil then
+                ps_character[key] = charVal
+            else
+                ps_settings[key] = payload.newValue
+                ps_character[key] = nil    -- defensive: ensure no stale override
+            end
         end)
     end
 end
@@ -116,73 +131,83 @@ function persistence:attachErrorHandler()
     end)
 end
 
--- ============================================================================
--- PER-CHARACTER OVERRIDE ACCESSORS
--- ============================================================================
-
--- Pawn Shop has two-tier settings: per-character overrides that fall back
--- to account-wide defaults. Account-wide values live in Addon.options
--- (backed by ps_settings). Per-character overrides live in ps_character.
---
--- Usage:
---   local lvl = Addon.persistence:getCharacterSetting("levelTolerance")
---   Addon.persistence:setCharacterSetting("levelTolerance", 5)
---   Addon.persistence:resetCharacterSetting("levelTolerance")
-
 --[[
-  Read a setting with per-character override precedence.
-  Returns character value if set, else account-wide options value, else default.
+  Pawn's currently-visible scales for the current character. Used as a
+  scale-mismatch heuristic on restore (we cache against this set; if the
+  user's visible scales change before next session, the cache may not
+  reflect what they care about).
 
-  @param key string
-  @return value
+  Returns an array of scale internal names. Empty array if Pawn isn't
+  loaded or has no scales.
 ]]
-function persistence:getCharacterSetting(key)
-    ps_character = ps_character or {}
-    if ps_character[key] ~= nil then
-        return ps_character[key]
+local function currentVisibleScales()
+    local out = {}
+    if not PawnCommon or not PawnCommon.Scales then return out end
+    if not PawnIsScaleVisible then return out end
+    for scaleName, _ in pairs(PawnCommon.Scales) do
+        if PawnIsScaleVisible(scaleName) then
+            table.insert(out, scaleName)
+        end
     end
-    if Addon.options then
-        return Addon.options:Get(key)
-    end
+    return out
 end
 
 --[[
-  Write a per-character override. This does NOT change the account-wide
-  default - it sets a character-specific value that shadows it.
+  Wire eval rows to ps_scanData. On EVAL:COMPLETE, snapshot the current
+  rows + scale registry for restore-after-reload. On SCAN:STARTED, wipe
+  the cache so we don't restore stale data over a fresh in-progress scan.
 
-  @param key string
-  @param value any
+  Restore happens lazily, driven by ahTab on AUCTION_HOUSE_SHOW. See
+  persistence:restoreScanIfFresh below.
 ]]
-function persistence:setCharacterSetting(key, value)
-    ps_character = ps_character or {}
-    ps_character[key] = value
+function persistence:attachScanData()
+    if not Addon.events then return end
+
+    ps_scanData = ps_scanData or {}
+
+    Addon.events:subscribe("EVAL:COMPLETE", function(_, payload)
+        -- Don't re-persist when we just hydrated FROM the SV.
+        if payload and payload.restored then return end
+        if not Addon.eval or not Addon.eval.serialize then return end
+
+        local blob = Addon.eval:serialize()
+        ps_scanData = {
+            rows              = blob.rows,
+            scaleOrder        = blob.scaleOrder,
+            scaleDisplayOrder = blob.scaleDisplayOrder,
+            trackedScales     = blob.trackedScales,
+            scannedAt         = time(),
+            visibleScales     = currentVisibleScales(),
+        }
+    end)
+
+    Addon.events:subscribe("SCAN:STARTED", function()
+        ps_scanData = {}
+    end)
 end
 
 --[[
-  Clear a per-character override so the setting falls back to the
-  account-wide default.
+  Restore eval state from ps_scanData and emit EVAL:COMPLETE so panel
+  renders. Returns true if data was restored, false otherwise.
 
-  @param key string
+  Caller should only invoke this on a fresh AH open before any scan has
+  run this session -- otherwise we'd clobber live in-progress eval state.
+
+  @return boolean restored, number|nil scannedAt, table|nil visibleScales
 ]]
-function persistence:resetCharacterSetting(key)
-    if ps_character then
-        ps_character[key] = nil
-    end
-end
+function persistence:restoreScanIfFresh()
+    if not ps_scanData then return false end
+    if not ps_scanData.rows then return false end
+    if #ps_scanData.rows == 0 then return false end
+    if not Addon.eval or not Addon.eval.hydrate then return false end
 
---[[
-  "Save as defaults for all characters": copy the current character's
-  per-character overrides into the account-wide options, then clear the
-  per-character table so everything uses the new defaults.
-
-  Called by the options-screen "Save as Defaults" button.
-]]
-function persistence:saveCharacterAsDefaults()
-    if not ps_character or not Addon.options then return end
-    for key, val in pairs(ps_character) do
-        Addon.options:Set(key, val)
-    end
-    ps_character = {}
+    Addon.eval:hydrate({
+        rows              = ps_scanData.rows,
+        scaleOrder        = ps_scanData.scaleOrder,
+        scaleDisplayOrder = ps_scanData.scaleDisplayOrder,
+        trackedScales     = ps_scanData.trackedScales,
+    })
+    return true, ps_scanData.scannedAt, ps_scanData.visibleScales
 end
 
 Addon.persistence = persistence

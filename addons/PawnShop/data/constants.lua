@@ -18,19 +18,28 @@ local constants = {
     -- Grid layout
     ROW_HEIGHT       = 28,
     ROW_HEIGHT_PAIR  = 48,
-    HEADER_HEIGHT    = 18,
+    HEADER_HEIGHT    = 24,
     SLOT_HEADER_HEIGHT = 20,
     ICON_SIZE        = 18,
 
     -- Column widths
-    COL_SCALE_WIDTH  = 70,
-    COL_BUYOUT_WIDTH = 90,
+    COL_SCALE_WIDTH      = 80,    -- Primary "Scale" column with sort arrow
+    COL_SECONDARY_WIDTH  = 70,    -- Secondary column: no sort, just label
+    COL_BUYOUT_WIDTH     = 90,
     COL_TIME_WIDTH   = 50,
-    COL_LEVEL_WIDTH  = 32,
+    COL_LEVEL_WIDTH      = 92,
     COL_PADDING      = 6,
 
-    -- Scale column cap (panel width = 800px, 5 cols fit comfortably)
-    MAX_SCALE_COLUMNS = 5,
+    -- Number of scale columns shown in the grid. Eval tracks as many
+    -- scales as Pawn returns (no cap), but the user can only see this
+    -- many at a time; the scale-picker dropdowns above the grid select
+    -- which of the tracked scales map to column 1 and column 2.
+    DISPLAYED_SCALE_COLUMNS = 2,
+
+    -- Dropdown sizing (scale pickers above the grid).
+    DROPDOWN_HEIGHT      = 22,
+    DROPDOWN_MIN_WIDTH   = 70,   -- matches COL_SCALE_WIDTH as a floor
+    DROPDOWN_MAX_WIDTH   = 250,  -- hard cap per user spec
 
     -- Hard cap for eval. math.huge = process everything. Settable lower
     -- for dev/debug to cut short a long eval on a huge scan.
