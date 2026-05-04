@@ -133,6 +133,7 @@ local function getFontString(id, fontObj)
     fs:SetFontObject(fontObj or FONT_NORMAL)
     fs:SetSpacing(2)  -- Reset to default line spacing
     fs:SetJustifyH("LEFT")  -- Reset alignment
+    fs:SetWidth(0)  -- Reset width constraint (0 = natural width)
     fs:Show()
     return fs
   end
@@ -298,6 +299,8 @@ function tooltip:reset()
   cursor.cornerIcon = nil
   cursor.minWidth = nil
   cursor.pendingBackgrounds = nil
+  cursor.activeColumns = nil
+  cursor.pendingRows = nil
   
   getFrame():SetSize(100, 30)
 end
@@ -339,6 +342,11 @@ end
   Finalize tooltip sizing.
 ]]
 function tooltip:done()
+  -- Flush any open columns block so its rows render before we size the frame
+  if cursor.activeColumns then
+    self:endColumns()
+  end
+  
   local f = getFrame()
   
   local width = math.max(cursor.maxWidth, 100)
@@ -908,6 +916,17 @@ function tooltip:row(...)
   local cells = {...}
   if #cells == 0 then return end
   
+  -- Inside a columns block, buffer the row for deferred rendering by endColumns().
+  -- Auto widths require seeing every row's content before any row can be positioned.
+  if cursor.activeColumns and cursor.pendingRows then
+    local cellDefs = {}
+    for i, cell in ipairs(cells) do
+      cellDefs[i] = type(cell) == "string" and {text = cell} or cell
+    end
+    table.insert(cursor.pendingRows, cellDefs)
+    return
+  end
+  
   cursor.index = cursor.index + 1
   local baseIndex = cursor.index
   
@@ -1026,6 +1045,204 @@ function tooltip:row(...)
   -- Advance cursor (anchor to first element)
   local firstElem = rowElements[1].icon or rowElements[1].text
   advanceCursor(firstElem, maxHeight)
+end
+
+--[[
+  Begin a tabular column block.
+  
+  Rows added via tooltip:row() while a block is active are buffered, then
+  rendered together by tooltip:endColumns() with consistent column widths
+  across rows. This is the only way to get true cross-row alignment in
+  proportional fonts.
+  
+  Constraints:
+    - Do not interleave space(), text(), separator(), or other tooltip calls
+      between rows inside a block. The cursor does not advance until
+      endColumns(); intermediate calls would render at the wrong Y. To
+      separate row groups, close the block first.
+    - A cell's rightAlign = true overrides its column slot and pins to the
+      tooltip's right edge.
+    - If endColumns() is not called explicitly, done() flushes defensively.
+  
+  @param specs table - Array of column specs (one per column):
+    { width = number|"auto" (nil treated as auto),
+      justify = "LEFT"|"CENTER"|"RIGHT" (default LEFT),
+      color = {r,g,b} (default applied if cell has no color),
+      font = "small"|"normal"|"header" (default normal) }
+  
+  Example:
+    tooltip:beginColumns({
+      { width = "auto", color = {1, 0.82, 0} },
+      { width = 50, justify = "RIGHT" },
+      { width = 50, justify = "RIGHT" },
+    })
+    tooltip:row({text = "All-time:"}, {text = "79 W"}, {text = "61 L"})
+    tooltip:row({text = "Today:"},    {text = "21 W"}, {text = "17 L"})
+    tooltip:endColumns()
+]]
+function tooltip:beginColumns(specs)
+  cursor.activeColumns = specs or {}
+  cursor.pendingRows = {}
+end
+
+--[[
+  Render all buffered rows from beginColumns() and close the block.
+  
+  Resolves "auto" column widths by measuring the widest content in each
+  column, positions cells at column slots with their justify, then advances
+  the cursor past the row group.
+]]
+function tooltip:endColumns()
+  local specs = cursor.activeColumns
+  local rows = cursor.pendingRows
+  cursor.activeColumns = nil
+  cursor.pendingRows = nil
+  
+  if not specs or not rows or #rows == 0 then return end
+  
+  local f = getFrame()
+  local COL_GAP = 12  -- Matches the inter-cell gap used in non-columns row mode
+  local ICON_TEXT_GAP = 4
+  local numCols = #specs
+  
+  -- Resolve font object for each column
+  local fontByCol = {}
+  for c = 1, numCols do
+    local spec = specs[c] or {}
+    local fontObj = FONT_NORMAL
+    if spec.font == "small" then fontObj = FONT_SMALL
+    elseif spec.font == "header" then fontObj = FONT_HEADER
+    end
+    fontByCol[c] = fontObj
+  end
+  
+  -- Resolve column widths: explicit numbers used as-is; "auto"/nil measured
+  -- against widest cell in that column.
+  local resolvedWidths = {}
+  for c = 1, numCols do
+    local spec = specs[c] or {}
+    local w = spec.width
+    if w == nil or w == "auto" then
+      local maxW = 0
+      for _, rowCells in ipairs(rows) do
+        local cell = rowCells[c]
+        if cell then
+          cursor.index = cursor.index + 1
+          local fs = getFontString(cursor.index, fontByCol[c])
+          fs:SetText(cell.text or "")
+          local cellW = fs:GetStringWidth()
+          if cell.icon then
+            cellW = cellW + (cell.iconSize or 16) + ICON_TEXT_GAP
+          end
+          if cellW > maxW then maxW = cellW end
+          fs:SetText("")
+          fs:Hide()
+          cursor.index = cursor.index - 1
+        end
+      end
+      resolvedWidths[c] = math.ceil(maxW)
+    else
+      resolvedWidths[c] = w
+    end
+  end
+  
+  -- Cumulative X offset for each column (relative to anchor + getAnchorX())
+  local xOffsets = {}
+  local x = 0
+  for c = 1, numCols do
+    xOffsets[c] = x
+    x = x + resolvedWidths[c] + COL_GAP
+  end
+  local totalContentWidth = x - COL_GAP  -- last gap doesn't count
+  
+  -- Render each buffered row
+  for _, rowCells in ipairs(rows) do
+    local rowMaxHeight = 0
+    local firstElem = nil
+    
+    for c = 1, numCols do
+      local cell = rowCells[c]
+      if cell then
+        local spec = specs[c] or {}
+        local cellWidth = resolvedWidths[c]
+        local justify = spec.justify or "LEFT"
+        local color = cell.color or spec.color or COLOR_DEFAULT
+        local fontObj = fontByCol[c]
+        
+        -- Optional cell icon
+        local icon = nil
+        if cell.icon then
+          local iconSize = cell.iconSize or 16
+          cursor.index = cursor.index + 1
+          icon = getTexture(cursor.index)
+          icon:SetSize(iconSize, iconSize)
+          icon:SetTexture(cell.icon)
+          if cell.iconCoords then
+            icon:SetTexCoord(unpack(cell.iconCoords))
+          else
+            icon:SetTexCoord(0, 1, 0, 1)
+          end
+          icon:Show()
+          if iconSize > rowMaxHeight then rowMaxHeight = iconSize end
+        end
+        
+        -- Text
+        cursor.index = cursor.index + 1
+        local fs = getFontString(cursor.index, fontObj)
+        fs:SetTextColor(color[1], color[2], color[3])
+        fs:SetText(cell.text or "")
+        fs:Show()
+        
+        -- Position: cell-level rightAlign overrides column slot
+        if cell.rightAlign then
+          fs:ClearAllPoints()
+          fs:SetWidth(0)  -- Clear any previous SetWidth so natural width returns
+          fs:SetJustifyH("LEFT")
+          fs:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PADDING_RIGHT, cursor.offsetY)
+          if icon then
+            icon:ClearAllPoints()
+            icon:SetPoint("RIGHT", fs, "LEFT", -ICON_TEXT_GAP, 0)
+          end
+        else
+          local cellX = getAnchorX() + xOffsets[c]
+          if icon then
+            -- Icon at column start, text follows
+            icon:ClearAllPoints()
+            icon:SetPoint("TOPLEFT", cursor.anchor, cursor.anchorPoint, cellX, cursor.offsetY)
+            local textWidth = cellWidth - (cell.iconSize or 16) - ICON_TEXT_GAP
+            fs:ClearAllPoints()
+            fs:SetPoint("LEFT", icon, "RIGHT", ICON_TEXT_GAP, 0)
+            if textWidth > 0 then
+              fs:SetWidth(textWidth)
+              fs:SetJustifyH(justify)
+            end
+          else
+            fs:ClearAllPoints()
+            fs:SetPoint("TOPLEFT", cursor.anchor, cursor.anchorPoint, cellX, cursor.offsetY)
+            if cellWidth > 0 then
+              fs:SetWidth(cellWidth)
+              fs:SetJustifyH(justify)
+            end
+          end
+        end
+        
+        local fsH = fs:GetStringHeight()
+        if fsH > rowMaxHeight then rowMaxHeight = fsH end
+        if not firstElem then firstElem = icon or fs end
+      end
+    end
+    
+    -- Advance cursor past this row, anchored to the first cell's element
+    if firstElem then
+      advanceCursor(firstElem, rowMaxHeight)
+    end
+  end
+  
+  -- Track frame width
+  local rowWidth = PADDING_LEFT + totalContentWidth + PADDING_RIGHT
+  if rowWidth > cursor.maxWidth then
+    cursor.maxWidth = rowWidth
+  end
 end
 
 --[[
