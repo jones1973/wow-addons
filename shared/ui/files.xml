@@ -1,0 +1,6 @@
+<!-- ui/shared/files.xml -->
+<Ui>
+    <Script file="dragDropMixin.lua"/>
+    <Script file="dragFeedback.lua"/>
+    <Script file="escapeHandler.lua"/>
+</Ui>
