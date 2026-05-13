@@ -494,6 +494,16 @@ function dropdown:create(config)
             end
         end
     end
+
+    --[[
+      Update the popup menu width for subsequent openings. The button's
+      own width is unaffected; this only controls how wide the dropdown
+      list renders when opened. Safe to call any time.
+      @param width number - pixel width, or nil to revert to auto-sized
+    ]]
+    function btn:SetMenuWidth(width)
+        config.menuWidth = width
+    end
     
     --[[
       Replace options list.

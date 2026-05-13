@@ -8,6 +8,7 @@
   Features:
   - Frame pooling for performance
   - Standard item rendering (text, icon, checkmark, arrow)
+  - Per-item text color override (itemDef.color = {r,g,b[,a]})
   - Custom item rendering via renderRow callback
   - Lavender hover highlight
   - Separators
@@ -449,7 +450,17 @@ local function renderItem(menuFrame, index, itemDef, yOffset, width, menuConfig)
         item.text:ClearAllPoints()
         item.text:SetPoint("LEFT", item, "LEFT", textOffset, 0)
         item.text:SetText(itemDef.text or "")
-        
+
+        -- Per-item color override. Useful for marking destructive
+        -- actions (red Delete, etc.) without each consumer reaching
+        -- around the menu API. Applied AFTER the default textColor
+        -- (set in acquireItemFrame) and BEFORE the disabled override
+        -- below, so disabled visual state still wins — disabled-and-
+        -- red is confusing.
+        if itemDef.color then
+            item.text:SetTextColor(unpack(itemDef.color))
+        end
+
         if disabled then
             item.text:SetTextColor(unpack(STYLE.disabledColor))
         end

@@ -1,29 +1,22 @@
 --[[
   core/options.lua (shared)
 
-  In-memory key-value store with two scopes (account / per-character),
-  defaults, callbacks, and change events. SavedVariable persistence is
-  NOT handled here — an addon-specific adapter subscribes to SETTING:*
-  events and hydrates via options:hydrate().
+  In-memory key-value store with defaults, callbacks, and change events.
+  SavedVariable persistence is NOT handled here — an addon-specific adapter
+  subscribes to SETTING:* events and hydrates via options:hydrate().
 
   Public API:
-    options:setDefaults(table)               -- register account-wide default values
-    options:setCategories(table)             -- category mapping for events
-    options:hydrate({account, character})    -- load initial values silently
-    options:Get(key)                         -- char if set, else account, else default
-    options:GetCharacter(key)                -- explicit char value or nil
-    options:GetAccount(key)                  -- explicit account value or default
-    options:SetCharacter(key, value)         -- write per-char override
-    options:SetAccount(key, value)           -- write account-wide value
-    options:PromoteCharacterToAccount(key)   -- char -> account, clear char
-    options:ResetCharacterOverride(key)      -- clear char override
-    options:GetAll()                         -- merged effective view
-    options:GetDefault(key)                  -- registered default
-    options:RegisterCallback(key, fn)        -- fn called on every effective-value change
+    options:setDefaults(table)         -- register default values
+    options:setCategories(table)       -- register category mapping for events
+    options:hydrate(sourceTable)       -- load initial values silently (no callbacks)
+    options:Get(key)                   -- read value, falling back to default
+    options:Set(key, value)            -- write value, fire callbacks and events
+    options:GetAll()                   -- get the full settings table
+    options:GetDefault(key)            -- read the default for a key
+    options:RegisterCallback(key, fn)  -- fn called on every Set of key
 
   Change events (one per category):
     SETTING:<CATEGORY>_CHANGED { name, oldValue, newValue, category }
-    Fires only when the EFFECTIVE value (what Get returns) changes.
 
   Dependencies: utils, events (optional — if absent, events are not emitted)
   Exports: Addon.options
@@ -45,10 +38,8 @@ local options = Addon.options
 local defaults = {}
 local settingCategories = {}  -- key -> category name
 
--- In-memory store: account-wide values
+-- In-memory store
 options.settings = {}
--- In-memory store: per-character overrides
-options.charSettings = {}
 options.callbacks = {}
 
 -- ============================================================================
@@ -85,33 +76,27 @@ end
 -- ============================================================================
 
 --[[
-  Load initial values from SavedVariable tables without firing callbacks.
-  Missing account-wide keys fall back to registered defaults.
+  Load initial values from a source table without firing callbacks.
+  Missing keys use registered defaults.
 
-  This MUST run before any code calls Get/SetAccount/SetCharacter, so
-  callbacks aren't triggered during startup hydration.
+  This MUST run before any code calls Get() or Set(), so callbacks aren't
+  triggered during startup hydration.
 
-  @param source table - { account = ps_settings, character = ps_character }
+  @param source table - typically a SavedVariable contents
 ]]
 function options:hydrate(source)
     source = source or {}
-    local account   = source.account   or {}
-    local character = source.character or {}
 
-    -- Account-wide
-    for k, v in pairs(account) do
+    -- Apply source values directly
+    for k, v in pairs(source) do
         self.settings[k] = v
     end
-    -- Fill in any missing account keys from registered defaults
+
+    -- Fill in any missing keys from defaults
     for k, v in pairs(defaults) do
         if self.settings[k] == nil then
             self.settings[k] = v
         end
-    end
-
-    -- Per-character overrides (no defaults — empty means "no override")
-    for k, v in pairs(character) do
-        self.charSettings[k] = v
     end
 end
 
@@ -119,107 +104,37 @@ end
 -- PUBLIC API
 -- ============================================================================
 
---[[
-  Read a setting. Per-character override wins; falls back to account
-  value, then to registered default.
-]]
 function options:Get(key)
-    if self.charSettings[key] ~= nil then
-        return self.charSettings[key]
-    end
     if self.settings[key] ~= nil then
         return self.settings[key]
     end
     return defaults[key]
 end
 
---[[
-  Read explicit per-character value. Returns nil if no override.
-]]
-function options:GetCharacter(key)
-    return self.charSettings[key]
-end
-
---[[
-  Read explicit account value. Falls back to default if not set.
-]]
-function options:GetAccount(key)
-    if self.settings[key] ~= nil then
-        return self.settings[key]
+function options:Set(key, val)
+    if self.settings[key] == val then
+        return
     end
-    return defaults[key]
-end
 
-local function fireChangeEvent(key, oldVal, newVal)
-    if not Addon.events then return end
-    local category = settingCategories[key]
-    if not category then return end
-    Addon.events:emit("SETTING:" .. category:upper() .. "_CHANGED", {
-        name     = key,
-        oldValue = oldVal,
-        newValue = newVal,
-        category = category,
-    })
-end
-
---[[
-  Write a per-character override. Fires SETTING:<CATEGORY>_CHANGED.
-]]
-function options:SetCharacter(key, val)
-    if self.charSettings[key] == val then return end
-    local oldVal = self:Get(key)   -- effective value before the write
-    self.charSettings[key] = val
+    local oldVal = self.settings[key]
+    self.settings[key] = val
     self:TriggerCallbacks(key, val)
-    fireChangeEvent(key, oldVal, val)
-    utils:debug(string.format("Setting (char) %s: %s -> %s",
-        tostring(key), tostring(oldVal), tostring(val)))
-end
 
---[[
-  Write the account-wide value. Fires SETTING:<CATEGORY>_CHANGED only
-  if there isn't a per-character override masking the value.
-]]
-function options:SetAccount(key, val)
-    if self.settings[key] == val then return end
-    local oldVal = self:Get(key)
-    self.settings[key] = val
-    -- If a per-char override exists, the effective value didn't change,
-    -- so don't fire the event or run callbacks for value-changed semantics.
-    -- Listeners that care about the account value specifically can be
-    -- added later if a use case appears.
-    if self.charSettings[key] == nil then
-        self:TriggerCallbacks(key, val)
-        fireChangeEvent(key, oldVal, val)
+    if Addon.events then
+        local category = settingCategories[key]
+        if category then
+            local eventName = "SETTING:" .. category:upper() .. "_CHANGED"
+            Addon.events:emit(eventName, {
+                name = key,
+                oldValue = oldVal,
+                newValue = val,
+                category = category,
+            })
+        end
     end
-    utils:debug(string.format("Setting (account) %s: %s -> %s",
+
+    utils:debug(string.format("Setting %s: %s -> %s",
         tostring(key), tostring(oldVal), tostring(val)))
-end
-
---[[
-  Promote the per-character override for a key into the account value,
-  then clear the override. Used by "Save current as defaults" flows.
-]]
-function options:PromoteCharacterToAccount(key)
-    if self.charSettings[key] == nil then return end
-    local val = self.charSettings[key]
-    self.charSettings[key] = nil
-    self.settings[key] = val
-    -- Effective value didn't change; don't fire event.
-end
-
---[[
-  Clear the per-character override for a key so reads fall through to
-  the account value.
-]]
-function options:ResetCharacterOverride(key)
-    if self.charSettings[key] == nil then return end
-    local oldVal = self.charSettings[key]
-    self.charSettings[key] = nil
-    local newVal = self:Get(key)
-    if newVal ~= oldVal then
-        self:TriggerCallbacks(key, newVal)
-        fireChangeEvent(key, oldVal, newVal)
-    end
 end
 
 function options:RegisterCallback(key, fn)
@@ -236,11 +151,7 @@ function options:TriggerCallbacks(key, val)
 end
 
 function options:GetAll()
-    -- Merged effective view: account values with per-char overrides.
-    local out = {}
-    for k, v in pairs(self.settings) do out[k] = v end
-    for k, v in pairs(self.charSettings) do out[k] = v end
-    return out
+    return self.settings
 end
 
 function options:GetDefault(key)
