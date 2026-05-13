@@ -12,6 +12,20 @@
     Solo:    mark each new mob with a distinct raid icon (skull → cross → ...)
     Grouped: no marks; print a summary line to chat
 
+  Watch entry name format. Entries are either a freeform string or a
+  {name, zone} table. The name itself may carry a trailing " (N)" or
+  " (H)" marker:
+
+    "Foo"           - matches any "Foo" mob anywhere zone allows
+    "Foo (N)"       - matches "Foo" only when in a Normal 5-man dungeon
+    "Foo (H)"       - matches "Foo" only when in a Heroic 5-man dungeon
+
+  The marker is stripped from the substring used against UnitName (which
+  the WoW client never returns with a suffix), and then reused as a
+  difficulty constraint that's gated against GetInstanceInfo() per scan.
+  Markers outside a 5-man instance fail to match — a heroic-locked entry
+  shouldn't fire in open-world Hellfire Peninsula.
+
   Polling note: nameplate events exist (NAME_PLATE_UNIT_ADDED/REMOVED) but
   they fire per-unit, not as a batch. The user's spec explicitly wants
   per-scan batched output ("Found: Mob A (2), Mob B (1)"), so an OnUpdate
@@ -71,42 +85,97 @@ local function isGrouped()
 end
 
 --[[
-  Unpack a watch list entry into (pattern, zone). Freeform entries are
-  stored as plain strings (no zone constraint); Questie-picked entries
-  are {pattern = ..., zone = ...} tables.
+  Unpack a watch list entry into (name, zone). Freeform entries are
+  stored as plain strings (no zone constraint); structured entries are
+  {name = ..., zone = ..., ...} tables.
 
   @param entry string|table
-  @return string|nil pattern, string|nil zone
+  @return string|nil name, string|nil zone
 ]]
 local function entryFields(entry)
     local t = type(entry)
     if t == "string" then
         return entry, nil
     elseif t == "table" then
-        return entry.pattern, entry.zone
+        return entry.name, entry.zone
     end
     return nil, nil
 end
 
 --[[
-  Test a mob name against the watch list using case-insensitive substring match.
-  Zone-locked entries only match when the player is in the constrained zone.
+  Strip a trailing " (N)" or " (H)" difficulty marker from a stored
+  pattern. Returns the substring to match against UnitName plus the
+  difficulty constraint, if any.
+
+  Whitespace before the parenthesis is tolerated so manually-typed
+  patterns like "Foo  (N)" work; the marker itself is case-sensitive
+  uppercase to match Blizzard's standard "(N)/(H)" annotation style.
+
+  @param pattern string
+  @return string|nil matchPattern - substring to match, or nil if input was nil
+  @return string|nil requiredDifficulty - "normal", "heroic", or nil for any
+]]
+local function parsePattern(pattern)
+    if not pattern then return nil, nil end
+    local stripped = pattern:match("^(.-)%s*%(N%)$")
+    if stripped then return stripped, "normal" end
+    stripped = pattern:match("^(.-)%s*%(H%)$")
+    if stripped then return stripped, "heroic" end
+    return pattern, nil
+end
+
+--[[
+  Determine the player's current dungeon difficulty.
+
+  Returns "normal" or "heroic" only when the player is inside a 5-man
+  party instance ("party" instanceType from GetInstanceInfo). Other
+  contexts — open world, raids, battlegrounds, arenas — return nil,
+  causing any (N)/(H)-locked entry to skip its match. This is the
+  desired behavior: "(H) Foo" should never alert outside a heroic dungeon.
+
+  Note on TBC raid difficulties: TBC raids are single-difficulty, so the
+  (N)/(H) distinction is meaningless there. A user who annotates a raid
+  mob with a marker effectively creates a never-match entry, which is
+  consistent with the marker's documented semantics.
+
+  @return string|nil  "normal", "heroic", or nil if not in a 5-man dungeon
+]]
+local function getCurrentDifficulty()
+    local _, instanceType, difficultyID = GetInstanceInfo()
+    if instanceType == "party" then
+        if difficultyID == 1 then return "normal" end
+        if difficultyID == 2 then return "heroic" end
+    end
+    return nil
+end
+
+--[[
+  Test a mob name against the watch list using case-insensitive substring
+  match. Zone-locked entries only match when the player is in the
+  constrained zone. Difficulty-locked entries only match when the player
+  is in a 5-man dungeon at the matching difficulty.
 
   @param name string - Mob name from UnitName
   @param currentZone string - Result of GetZoneText() for this tick
+  @param currentDiff string|nil - Result of getCurrentDifficulty() for this tick
   @return boolean
 ]]
-local function matchesWatchList(name, currentZone)
+local function matchesWatchList(name, currentZone, currentDiff)
     local list = mobster_character and mobster_character.watchList
     if not name or not list or #list == 0 then
         return false
     end
     local lower = name:lower()
     for _, entry in ipairs(list) do
-        local pattern, zone = entryFields(entry)
-        if pattern and lower:find(pattern:lower(), 1, true) then
+        local entryName, zone = entryFields(entry)
+        local matchPattern, requiredDiff = parsePattern(entryName)
+        if matchPattern and matchPattern ~= ""
+            and lower:find(matchPattern:lower(), 1, true)
+        then
             if (not zone) or zone == currentZone then
-                return true
+                if (not requiredDiff) or requiredDiff == currentDiff then
+                    return true
+                end
             end
         end
     end
@@ -125,8 +194,9 @@ local MAX_NAMEPLATES = 40
 
 local function collectMatches()
     local matches = {}
-    -- Cache zone once per scan rather than once per plate.
+    -- Cache zone and difficulty once per scan rather than once per plate.
     local currentZone = GetZoneText()
+    local currentDiff = getCurrentDifficulty()
     for i = 1, MAX_NAMEPLATES do
         local unit = "nameplate" .. i
         if UnitExists(unit)
@@ -134,7 +204,7 @@ local function collectMatches()
             and not UnitIsDead(unit)
         then
             local name = UnitName(unit)
-            if name and matchesWatchList(name, currentZone) then
+            if name and matchesWatchList(name, currentZone, currentDiff) then
                 local guid = UnitGUID(unit)
                 if guid then
                     matches[guid] = { name = name, unit = unit }

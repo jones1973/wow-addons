@@ -1,43 +1,25 @@
 --[[
   main.lua
-  Application Entry Point
-
-  Owns the initialization sequence: SavedVariable defaults, schema check,
-  then synchronous module initialization. Also registers the /mob slash
-  command.
-
-  Dependencies: constants, utils, scanner, typeahead, watchList
-  Exports: MOBSTER (global alias for /dump debugging)
 ]]
 
 local ADDON_NAME, Addon = ...
 
--- Single boundary between internal and external names
 MOBSTER = Addon
 
--- Per-character SV defaults
 local DEFAULTS = {
     watchList     = {},
     soundEnabled  = true,
     markEnabled   = true,
 }
 
--- ============================================================================
--- INITIALIZATION
--- ============================================================================
-
 local function initSavedVars()
     mobster_character = mobster_character or {}
 
-    -- Schema check. During development the version stays at SV_VERSION; if
-    -- it doesn't match, wipe and start fresh. At release we'd replace the
-    -- wipe with a migration chain.
     if mobster_character.version ~= Addon.constants.SV_VERSION then
         wipe(mobster_character)
         mobster_character.version = Addon.constants.SV_VERSION
     end
 
-    -- Fill in missing keys without disturbing existing values
     for k, v in pairs(DEFAULTS) do
         if mobster_character[k] == nil then
             if type(v) == "table" then
@@ -47,21 +29,32 @@ local function initSavedVars()
             end
         end
     end
+
 end
 
 local function initModules()
-    -- Manual topological order: logic before UI; typeahead before watchList
-    -- because watchList's buildFrame calls Addon.typeahead:attach.
     Addon.scanner:initialize()
-    if Addon.typeahead and Addon.typeahead.initialize then
-        Addon.typeahead:initialize()
+    if Addon.questieHelpers and Addon.questieHelpers.initialize then
+        Addon.questieHelpers:initialize()
+    end
+    if Addon.itemDropIndex and Addon.itemDropIndex.initialize then
+        Addon.itemDropIndex:initialize()
+    end
+    if Addon.nameTypeahead and Addon.nameTypeahead.initialize then
+        Addon.nameTypeahead:initialize()
+    end
+    if Addon.zoneTypeahead and Addon.zoneTypeahead.initialize then
+        Addon.zoneTypeahead:initialize()
+    end
+    if Addon.reasonTypeahead and Addon.reasonTypeahead.initialize then
+        Addon.reasonTypeahead:initialize()
+    end
+    Addon.editPanel:initialize()
+    if Addon.itemAddPanel and Addon.itemAddPanel.initialize then
+        Addon.itemAddPanel:initialize()
     end
     Addon.watchList:initialize()
 end
-
--- ============================================================================
--- ADDON_LOADED
--- ============================================================================
 
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
@@ -74,10 +67,6 @@ loader:SetScript("OnEvent", function(self, event, arg1)
 
     self:UnregisterEvent("ADDON_LOADED")
 end)
-
--- ============================================================================
--- SLASH COMMAND
--- ============================================================================
 
 SLASH_MOBSTER1 = "/mob"
 SlashCmdList["MOBSTER"] = function(msg)
@@ -93,8 +82,6 @@ SlashCmdList["MOBSTER"] = function(msg)
     rest = rest and rest:trim() or ""
 
     if cmd == "add" and rest ~= "" then
-        -- Slash-add is always freeform (no Questie picker available here),
-        -- so the entry is a plain string.
         table.insert(mobster_character.watchList, rest)
         Addon.scanner:resetTracking()
         Addon.watchList:refresh()
@@ -104,10 +91,9 @@ SlashCmdList["MOBSTER"] = function(msg)
         local lower = rest:lower()
         for i = #mobster_character.watchList, 1, -1 do
             local entry = mobster_character.watchList[i]
-            -- Entries are strings (freeform) or tables (zone-locked).
-            local pattern = (type(entry) == "string") and entry or entry.pattern
-            if pattern and pattern:lower():find(lower, 1, true) then
-                Addon.utils:chat("Removed: " .. pattern)
+            local entryName = (type(entry) == "string") and entry or entry.name
+            if entryName and entryName:lower():find(lower, 1, true) then
+                Addon.utils:chat("Removed: " .. entryName)
                 table.remove(mobster_character.watchList, i)
                 break
             end

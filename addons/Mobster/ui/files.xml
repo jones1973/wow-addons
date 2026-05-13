@@ -1,0 +1,15 @@
+<!-- ui/files.xml -->
+<Ui>
+    <!-- Shared widgets (synced from monorepo's shared/ui/widgets/) -->
+    <Include file="shared\files.xml"/>
+
+    <!-- Typeaheads (must load before panels that use them) -->
+    <Script file="nameTypeahead.lua"/>
+    <Script file="zoneTypeahead.lua"/>
+    <Script file="reasonTypeahead.lua"/>
+
+    <!-- Panels -->
+    <Script file="editPanel.lua"/>
+    <Script file="itemAddPanel.lua"/>
+    <Script file="watchList.lua"/>
+</Ui>

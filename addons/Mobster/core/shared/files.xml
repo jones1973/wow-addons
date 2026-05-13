@@ -1,0 +1,4 @@
+<!-- core/shared/files.xml -->
+<Ui>
+    <Script file="pool.lua"/>
+</Ui>
