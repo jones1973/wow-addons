@@ -1,15 +1,24 @@
 --[[
   ui/shared/theme.lua
-  Theme System — unified visual design tokens, brand identity, skinning,
-  chat output, and tooltip foundation for the addon family.
+  Theme System — unified visual design tokens, brand identity, skinning
+  dispatcher, chat output builder, and tooltip-token foundation for the
+  addon family.
 
   Provides:
     theme.tokens       Token tables (Tier 1 primitives, Tier 2 roles, Tier 3 contextual)
     theme.derive       Helper functions (inline color codes, runtime resolution, etc.)
     theme.brand        Per-addon brand configuration API
     theme.chat         Chat output builder
-    theme.style        Skinning dispatcher and strategies (stock + ElvUI)
+    theme.style        Skinning dispatcher (strategies live in separate files)
     theme.backdrops    Pre-built backdrop tables for direct SetBackdrop use
+
+  Skinning strategies are separate modules:
+    theme/style/stock.lua    — always-available stock Blizzard strategy
+    theme/style/elvui.lua    — ElvUI strategy
+
+  Strategy files declare {"theme"} as a dependency so theme always
+  initializes first. Strategies register themselves at file-load time
+  via theme.style.strategies.<name> = strategy.
 
   Per-addon configuration goes in themeConfig.lua, which runs after this
   module loads and calls theme.brand.set / theme.chat.set to install the
@@ -107,7 +116,6 @@ local function hslToRgb(h, s, l)
 end
 
 -- Lift a token's lightness by deltaL (in HSL space, 0-1).
--- Used by brand derivation to produce hover/active variants.
 local function liftLightness(token, deltaL)
     local h, s, l = rgbToHsl(token.r, token.g, token.b)
     l = math.min(1, math.max(0, l + deltaL))
@@ -303,10 +311,9 @@ local function buildProgressTokens()
     local h = theme.tokens.HUE
 
     -- GATED uses BRAND.SECONDARY when defined; otherwise reserve purple.
-    local secondary = (theme.tokens.BRAND and theme.tokens.BRAND.SECONDARY) or h.PURPLE_500
     local secondaryBorder = (theme.tokens.BRAND and theme.tokens.BRAND.SECONDARY_BORDER) or withAlpha(h.PURPLE_500, 0.85)
-    local secondaryText = (theme.tokens.BRAND and theme.tokens.BRAND.SECONDARY_TEXT) or h.PURPLE_500
-    local secondaryTint = (theme.tokens.BRAND and theme.tokens.BRAND.SELECTION_TINT_LOW) or withAlpha(h.PURPLE_500, 0.15)
+    local secondaryText   = (theme.tokens.BRAND and theme.tokens.BRAND.SECONDARY_TEXT)   or h.PURPLE_500
+    local secondaryTint   = (theme.tokens.BRAND and theme.tokens.BRAND.SELECTION_TINT_LOW) or withAlpha(h.PURPLE_500, 0.15)
 
     theme.tokens.PROGRESS = {
         COMPLETE = {
@@ -346,11 +353,9 @@ end
 -- TIER 3 — DATA VIZ: HEATMAP
 -- ============================================================================
 
--- Composed from existing tokens. Stays in lockstep with QUALITY.LEGENDARY etc.
--- HOT references QUALITY.LEGENDARY which resolves lazily; the assignment
--- here returns the (lazy) token, not nil, because the metatable __index
--- runs at access time on theme.tokens.HEATMAP.HOT, which forwards to
--- theme.tokens.QUALITY.LEGENDARY at that point.
+-- Composed from existing tokens. Stays in lockstep with QUALITY.LEGENDARY.
+-- HOT references QUALITY.LEGENDARY which resolves lazily; the metatable
+-- forwards at access time.
 theme.tokens.HEATMAP = setmetatable({
     COLD = theme.tokens.STATE.SUCCESS_SOFT,
     WARM = theme.tokens.TEXT.EMPHASIS,
@@ -396,8 +401,8 @@ theme.tokens.BRANCH = {
 -- TIER 3 — DATA VIZ: BARS
 -- ============================================================================
 
--- BAR.FILL_BRAND and BAR.FILL_FACTION resolve lazily — BRAND is set after
--- this module loads, FACTION is per-call via theme.derive.factionFor.
+-- BAR.FILL_BRAND and BAR.OVERFLOW resolve lazily — BRAND is set after
+-- this module loads, OVERFLOW chains to QUALITY.LEGENDARY (lazy).
 theme.tokens.BAR = setmetatable({
     BACKGROUND   = theme.tokens.NEUTRAL.L2,
     FILL_DEFAULT = theme.tokens.STATE.SUCCESS_SOFT,
@@ -451,7 +456,7 @@ theme.tokens.TOOLTIP = {
 }
 
 -- ============================================================================
--- TIER 3 — SEPARATOR AND HEADER (used by skinning API)
+-- TIER 3 — SEPARATOR AND HEADER
 -- ============================================================================
 
 theme.tokens.SEPARATOR = setmetatable({
@@ -519,7 +524,6 @@ local function deriveBrandVariants(anchor, prefix, isSecondary)
     end
 end
 
--- Apply any registered overrides on top of derived variants.
 local function applyBrandOverrides()
     for variantName, value in pairs(brandOverrides) do
         theme.tokens.BRAND[variantName] = value
@@ -587,9 +591,7 @@ function theme.derive.qualityName(qualityInt)
     return names[qualityInt]
 end
 
--- Resolve a class identifier (token-key like "WARLOCK" or localized string)
--- to a CLASS token. For a localized string, caller should pass the English
--- token-key; this helper accepts either form.
+-- Resolve a class identifier (token-key like "WARLOCK") to a CLASS token.
 function theme.derive.classFor(classKey)
     if not classKey then return nil end
     return theme.tokens.CLASS[classKey]
@@ -648,7 +650,6 @@ function theme.derive.heatmapInterpolated(value, warmThreshold, hotThreshold)
 end
 
 -- Format a copper amount as a colored gold/silver/copper string.
--- Used by the unified tooltip system and any chat output of money values.
 function theme.derive.formatMoney(copper)
     copper = copper or 0
     local g = math.floor(copper / 10000)
@@ -681,6 +682,14 @@ function theme.derive.petFamilyColor(petType)
     return theme.tokens.PAO_FAMILY[name]
 end
 
+-- Strategy-side helpers — exposed for stock and ElvUI strategy files.
+-- These let strategies build derived tokens (lighter/darker variants,
+-- alpha-modified versions) without duplicating the math.
+theme.derive.makeToken     = makeToken
+theme.derive.withAlpha     = withAlpha
+theme.derive.liftLightness = liftLightness
+theme.derive.setLightness  = setLightness
+
 -- ============================================================================
 -- CHAT API
 -- ============================================================================
@@ -696,7 +705,6 @@ function theme.chat.set(config)
     chatConfig.prefixColor = config.prefixColor
 end
 
--- Internal: resolve the prefix string with color code.
 local function buildPrefix(colorOverride)
     local color = colorOverride or chatConfig.prefixColor or theme.tokens.TEXT.EMPHASIS
     local prefix = chatConfig.prefix or "?"
@@ -712,7 +720,6 @@ function theme.chat:line(...)
         if type(arg) == "string" then
             parts[#parts + 1] = arg
         elseif type(arg) == "table" and arg[1] and arg[2] then
-            -- {token, text} pair
             parts[#parts + 1] = theme.derive.inline(arg[1], arg[2])
         end
     end
@@ -732,9 +739,6 @@ end
 -- BACKDROPS — pre-built tables for direct SetBackdrop use
 -- ============================================================================
 
--- These are the Blizzard-stock backdrop shapes. Strategies may override
--- by populating their own variants; consumers can use these directly when
--- no skin* method fits.
 theme.backdrops.PANEL = {
     bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
     edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -776,13 +780,13 @@ theme.backdrops.CARD = {
 
 -- The dispatcher walks registered strategies (excluding stock) and calls
 -- detect() on each. Exactly one match → use that strategy. Zero or 2+
--- matches → use stock. Stock is the floor and always implements every
--- public method.
+-- matches → use stock. Stock is always the floor.
 
 local activeStrategy = nil
-local stockStrategy = nil  -- assigned after stock is defined below
 
-local function selectStrategy()
+-- Public: re-run strategy detection. Called by strategy files after
+-- they register, and by theme's own module-init function.
+function theme.style.refreshSelection()
     local matches = {}
     for name, strat in pairs(theme.style.strategies) do
         if name ~= "stock" and strat.detect and strat.detect() then
@@ -793,7 +797,7 @@ local function selectStrategy()
     if #matches == 1 then
         activeStrategy = matches[1]
     else
-        activeStrategy = stockStrategy
+        activeStrategy = theme.style.strategies.stock
     end
 end
 
@@ -803,8 +807,9 @@ local function dispatch(methodName, ...)
     if activeStrategy and activeStrategy[methodName] then
         return activeStrategy[methodName](activeStrategy, ...)
     end
-    if stockStrategy and stockStrategy[methodName] then
-        return stockStrategy[methodName](stockStrategy, ...)
+    local stock = theme.style.strategies.stock
+    if stock and stock[methodName] then
+        return stock[methodName](stock, ...)
     end
 end
 
@@ -826,388 +831,14 @@ function theme.style:skinProgressBar(bar, options)   dispatch("skinProgressBar",
 function theme.style:skinStatusBar(bar, options)     dispatch("skinStatusBar", bar, options) end
 
 -- ============================================================================
--- STOCK STRATEGY
--- ============================================================================
-
-local stock = {
-    detect = function() return true end,  -- always available
-}
-
-function stock:skinPanel(frame, options)
-    if not frame.SetBackdrop then return end
-    local s = (options and options.level == "RAISED")
-        and theme.tokens.SURFACE.PANEL_RAISED
-        or theme.tokens.SURFACE.PANEL_BASE
-
-    if not (options and options.noBorder) then
-        frame:SetBackdrop(theme.backdrops.PANEL)
-        if frame.SetBackdropColor then
-            frame:SetBackdropColor(s.r, s.g, s.b, s.a)
-        end
-    else
-        frame:SetBackdrop({
-            bgFile = "Interface\\Buttons\\WHITE8X8",
-            tile   = false,
-            insets = { left = 0, right = 0, top = 0, bottom = 0 },
-        })
-        if frame.SetBackdropColor then
-            frame:SetBackdropColor(s.r, s.g, s.b, s.a)
-        end
-    end
-end
-
-function stock:skinTab(button, isActive, options)
-    if not button then return end
-    local t = theme.tokens.TAB
-
-    -- Background texture
-    if not button._themeBg then
-        button._themeBg = button:CreateTexture(nil, "BACKGROUND")
-        button._themeBg:SetAllPoints()
-    end
-
-    local bg = isActive and t.ACTIVE_BG or t.INACTIVE_BG
-    button._themeBg:SetColorTexture(bg.r, bg.g, bg.b, bg.a or 1.0)
-
-    -- Text color (find the FontString child)
-    local fs = button.GetFontString and button:GetFontString()
-    if fs then
-        local tc = isActive and t.ACTIVE_TEXT or t.INACTIVE_TEXT
-        fs:SetTextColor(tc.r, tc.g, tc.b)
-    end
-
-    -- Selected accent stripe
-    if options and options.selectedAccent and isActive then
-        if not button._themeAccent then
-            button._themeAccent = button:CreateTexture(nil, "OVERLAY")
-            button._themeAccent:SetHeight(2)
-            button._themeAccent:SetPoint("BOTTOMLEFT")
-            button._themeAccent:SetPoint("BOTTOMRIGHT")
-        end
-        local ac = t.ACTIVE_BORDER
-        button._themeAccent:SetColorTexture(ac.r, ac.g, ac.b, ac.a or 1.0)
-        button._themeAccent:Show()
-    elseif button._themeAccent then
-        button._themeAccent:Hide()
-    end
-end
-
-function stock:skinHeader(frame, options)
-    if not frame.SetBackdrop then return end
-
-    local bg = theme.tokens.HEADER.BG
-    local label = theme.tokens.HEADER.LABEL
-
-    frame:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        tile   = false,
-        insets = { left = 0, right = 0, top = 0, bottom = 0 },
-    })
-    if frame.SetBackdropColor then
-        frame:SetBackdropColor(bg.r, bg.g, bg.b, bg.a or 1.0)
-    end
-
-    -- If a label FontString is exposed, color it.
-    if frame.label and frame.label.SetTextColor then
-        frame.label:SetTextColor(label.r, label.g, label.b)
-    end
-
-    -- Brand-tinted overlay if requested and brand is defined.
-    if options and options.brandTinted and theme.tokens.BRAND and theme.tokens.BRAND.SELECTION_TINT_LOW then
-        if not frame._themeBrandOverlay then
-            frame._themeBrandOverlay = frame:CreateTexture(nil, "BORDER")
-            frame._themeBrandOverlay:SetAllPoints()
-        end
-        local tint = theme.tokens.BRAND.SELECTION_TINT_LOW
-        frame._themeBrandOverlay:SetColorTexture(tint.r, tint.g, tint.b, tint.a)
-    end
-end
-
-function stock:skinTitlebar(frame, text)
-    if not frame then return end
-    if not frame._themeTitle then
-        frame._themeTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        frame._themeTitle:SetPoint("TOP", 0, -18)
-    end
-    frame._themeTitle:SetText(text or "")
-end
-
-function stock:skinPopup(frame, options)
-    if not frame.SetBackdrop then return end
-    local s = theme.tokens.SURFACE.OVERLAY
-
-    if options and options.solidBackground then
-        s = makeToken(s.r, s.g, s.b, 1.0)
-    end
-
-    frame:SetBackdrop(theme.backdrops.POPUP)
-    if frame.SetBackdropColor then
-        frame:SetBackdropColor(s.r, s.g, s.b, s.a)
-    end
-    frame:SetFrameStrata((options and options.strata) or "DIALOG")
-end
-
-function stock:skinTooltip(frame, options)
-    if not frame.SetBackdrop then return end
-    local s = theme.tokens.SURFACE.OVERLAY
-    frame:SetBackdrop(theme.backdrops.TOOLTIP)
-    if frame.SetBackdropColor then
-        frame:SetBackdropColor(s.r, s.g, s.b, s.a)
-    end
-end
-
-function stock:skinCard(frame, options)
-    if not frame.SetBackdrop then return end
-    local s = theme.tokens.SURFACE.PANEL_RAISED
-    local edge = theme.tokens.NEUTRAL.L4
-
-    frame:SetBackdrop(theme.backdrops.CARD)
-    if frame.SetBackdropColor then
-        frame:SetBackdropColor(s.r, s.g, s.b, s.a)
-    end
-    if frame.SetBackdropBorderColor then
-        frame:SetBackdropBorderColor(edge.r, edge.g, edge.b, edge.a or 1.0)
-    end
-
-    if options and options.selected and theme.tokens.BRAND and theme.tokens.BRAND.SELECTION_TINT_HIGH then
-        local tint = theme.tokens.BRAND.SELECTION_TINT_HIGH
-        if frame.SetBackdropColor then
-            frame:SetBackdropColor(tint.r, tint.g, tint.b, tint.a)
-        end
-    end
-end
-
-function stock:skinScrollbar(bar, options)
-    if not bar then return end
-    -- Stock scrollbars use Blizzard's existing widget; we tint thumb/track
-    -- via the existing texture children if present.
-    local thumb = bar.GetThumbTexture and bar:GetThumbTexture()
-    if thumb and thumb.SetVertexColor then
-        local n = theme.tokens.NEUTRAL.L4
-        thumb:SetVertexColor(n.r, n.g, n.b, 0.8)
-    end
-end
-
-function stock:skinDropdown(frame, options)
-    if not frame then return end
-    -- Simple panel-style backdrop on the dropdown button.
-    if frame.SetBackdrop then
-        local s = theme.tokens.SURFACE.PANEL_RAISED
-        frame:SetBackdrop({
-            bgFile   = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-            tile     = false,
-            edgeSize = 8,
-            insets   = { left = 2, right = 2, top = 2, bottom = 2 },
-        })
-        if frame.SetBackdropColor then
-            frame:SetBackdropColor(s.r, s.g, s.b, s.a)
-        end
-    end
-end
-
-function stock:skinEditBox(box, options)
-    -- Stock leaves the textBox widget's BackdropTemplate alone — designed
-    -- to match stock parchment. Intentional no-op.
-end
-
-function stock:skinButton(button, options)
-    -- Stock leaves UIPanelButtonTemplate alone — already matches stock parchment.
-    -- For non-template buttons with an explicit style, future expansion handles
-    -- the FLAT/GRADIENT/DARK_PRO/OUTLINED styles.
-end
-
-function stock:skinCheckbox(checkbox, options)
-    if not checkbox then return end
-    -- Style label if present
-    local label = _G[checkbox:GetName() .. "Text"]
-    if label and label.SetTextColor then
-        local t = theme.tokens.TEXT.PRIMARY
-        label:SetTextColor(t.r, t.g, t.b)
-    end
-end
-
-function stock:skinSeparator(line, options)
-    if not line or not line.SetColorTexture then return end
-    local s = (options and options.tint == "BRAND")
-        and theme.tokens.SEPARATOR.BRAND
-        or theme.tokens.SEPARATOR.DEFAULT
-    line:SetColorTexture(s.r, s.g, s.b, s.a)
-end
-
-function stock:skinProgressBar(bar, options)
-    if not bar then return end
-    options = options or {}
-
-    local bg = theme.tokens.BAR.BACKGROUND
-    if bar.SetStatusBarColor then
-        local fill
-        local fillTokenName = options.fillToken or "DEFAULT"
-        if fillTokenName == "FACTION" and options.factionStanding then
-            fill = theme.derive.factionFor(options.factionStanding)
-        elseif fillTokenName == "BRAND" then
-            fill = theme.tokens.BAR.FILL_BRAND or theme.tokens.BAR.FILL_DEFAULT
-        else
-            fill = theme.tokens.BAR.FILL_DEFAULT
-        end
-        if fill then
-            bar:SetStatusBarColor(fill.r, fill.g, fill.b, fill.a or 1.0)
-        end
-    end
-
-    -- Background tint via a child texture if the bar exposes one
-    if bar.bg and bar.bg.SetColorTexture then
-        bar.bg:SetColorTexture(bg.r, bg.g, bg.b, bg.a or 1.0)
-    end
-end
-
-function stock:skinStatusBar(bar, options)
-    -- Same shape as skinProgressBar; the distinction matters for ElvUI
-    -- which has separate handlers.
-    self:skinProgressBar(bar, options)
-end
-
--- Register stock strategy and capture reference for fallback dispatch.
-theme.style.strategies.stock = stock
-stockStrategy = stock
-
--- ============================================================================
--- ELVUI STRATEGY
--- ============================================================================
-
--- Defensive lookup of ElvUI's Skins module. The Skins API is not stable
--- across ElvUI versions; every method that calls into S:Handle* checks
--- existence first.
-local function elvuiSkins()
-    if not _G.ElvUI then return nil end
-    local E = _G.ElvUI[1]
-    if not E or not E.GetModule then return nil end
-    return E:GetModule("Skins", true)  -- silent: returns nil if not registered
-end
-
-local elvui = {
-    detect = function() return _G.ElvUI ~= nil end,
-}
-
-function elvui:skinPanel(frame, options)
-    if frame.SetTemplate then
-        frame:SetTemplate("Transparent")
-    end
-end
-
-function elvui:skinTab(button, isActive, options)
-    local S = elvuiSkins()
-    if S and S.HandleTab then
-        S:HandleTab(button)
-    elseif S and S.HandleButton then
-        S:HandleButton(button)
-    end
-end
-
-function elvui:skinHeader(frame, options)
-    if frame.SetTemplate then
-        frame:SetTemplate("Default")
-    end
-end
-
-function elvui:skinTitlebar(frame, text)
-    -- ElvUI strips chrome; nowhere conventional to anchor a titlebar.
-    -- Intentional no-op.
-end
-
-function elvui:skinPopup(frame, options)
-    if frame.SetTemplate then
-        frame:SetTemplate("Transparent")
-    end
-    frame:SetFrameStrata((options and options.strata) or "DIALOG")
-end
-
-function elvui:skinTooltip(frame, options)
-    -- ElvUI's tooltip module skins tooltips itself when registered.
-    -- Stock fallback if the module isn't present.
-    local S = elvuiSkins()
-    if not S then
-        stock:skinTooltip(frame, options)
-    end
-end
-
-function elvui:skinCard(frame, options)
-    if frame.SetTemplate then
-        frame:SetTemplate("Default")
-    end
-end
-
-function elvui:skinScrollbar(bar, options)
-    local S = elvuiSkins()
-    if S and S.HandleScrollBar then
-        S:HandleScrollBar(bar)
-    end
-end
-
-function elvui:skinDropdown(frame, options)
-    local S = elvuiSkins()
-    if S and S.HandleDropDownBox then
-        S:HandleDropDownBox(frame)
-    elseif frame.SetTemplate then
-        frame:SetTemplate("Default")
-    end
-end
-
-function elvui:skinEditBox(box, options)
-    -- PawnShop's existing behavior: leave the textBox widget alone.
-    -- ElvUI's HandleEditBox doesn't expect BackdropTemplate, so the
-    -- fall-through here is intentional.
-end
-
-function elvui:skinButton(button, options)
-    local S = elvuiSkins()
-    if S and S.HandleButton then
-        S:HandleButton(button)
-    end
-end
-
-function elvui:skinCheckbox(checkbox, options)
-    local S = elvuiSkins()
-    if S and S.HandleCheckBox then
-        S:HandleCheckBox(checkbox)
-    end
-end
-
-function elvui:skinSeparator(line, options)
-    -- ElvUI separators are typically too small for ElvUI to have strong
-    -- opinions about; behave as stock.
-    stock:skinSeparator(line, options)
-end
-
-function elvui:skinProgressBar(bar, options)
-    local S = elvuiSkins()
-    if S and S.HandleStatusBar then
-        S:HandleStatusBar(bar)
-    else
-        stock:skinProgressBar(bar, options)
-    end
-end
-
-function elvui:skinStatusBar(bar, options)
-    local S = elvuiSkins()
-    if S and S.HandleStatusBar then
-        S:HandleStatusBar(bar)
-    else
-        stock:skinStatusBar(bar, options)
-    end
-end
-
-theme.style.strategies.elvui = elvui
-
--- Run strategy detection now that both stock and ElvUI are registered.
-selectStrategy()
-
--- ============================================================================
 -- MODULE REGISTRATION
 -- ============================================================================
 
 if Addon.registerModule then
     Addon.registerModule("theme", {}, function()
+        -- All strategy files have loaded by now (file-load is synchronous
+        -- and completes before init functions run). Run detection.
+        theme.style.refreshSelection()
         return true
     end)
 end
