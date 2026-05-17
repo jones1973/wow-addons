@@ -8,6 +8,7 @@
   Features:
   - Frame pooling for performance
   - Standard item rendering (text, icon, checkmark, arrow)
+  - Per-item text color override (itemDef.color = {r,g,b[,a]})
   - Custom item rendering via renderRow callback
   - Lavender hover highlight
   - Separators
@@ -431,16 +432,21 @@ local function renderItem(menuFrame, index, itemDef, yOffset, width, menuConfig)
             textOffset = STYLE.paddingH + STYLE.iconSize + STYLE.iconPadding
         end
         
-        -- Checkmark
+        -- Checkmark. Always re-anchor when rendering a checkable
+        -- item, regardless of current checked state — the texture's
+        -- anchor must be set before it's ever shown, including by
+        -- the click handler below that toggles Show without anchoring.
         if itemDef.checkable or itemDef.checked ~= nil then
             local checked = itemDef.checked
             if type(checked) == "function" then
                 checked = checked(context)
             end
+            item.check:ClearAllPoints()
+            item.check:SetPoint("LEFT", item, "LEFT", STYLE.paddingH, 0)
             if checked then
-                item.check:ClearAllPoints()
-                item.check:SetPoint("LEFT", item, "LEFT", STYLE.paddingH, 0)
                 item.check:Show()
+            else
+                item.check:Hide()
             end
             textOffset = STYLE.paddingH + STYLE.checkSize + STYLE.iconPadding
         end
@@ -449,7 +455,17 @@ local function renderItem(menuFrame, index, itemDef, yOffset, width, menuConfig)
         item.text:ClearAllPoints()
         item.text:SetPoint("LEFT", item, "LEFT", textOffset, 0)
         item.text:SetText(itemDef.text or "")
-        
+
+        -- Per-item color override. Useful for marking destructive
+        -- actions (red Delete, etc.) without each consumer reaching
+        -- around the menu API. Applied AFTER the default textColor
+        -- (set in acquireItemFrame) and BEFORE the disabled override
+        -- below, so disabled visual state still wins — disabled-and-
+        -- red is confusing.
+        if itemDef.color then
+            item.text:SetTextColor(unpack(itemDef.color))
+        end
+
         if disabled then
             item.text:SetTextColor(unpack(STYLE.disabledColor))
         end
@@ -537,12 +553,17 @@ local function renderItem(menuFrame, index, itemDef, yOffset, width, menuConfig)
         if not self.keepOpen then
             closeAllMenus()
         else
-            -- Refresh checkmark state for checkbox mode
+            -- Refresh checkmark state for checkbox mode. Re-anchor on
+            -- every toggle — the main render path also sets this, but
+            -- being explicit here means this code path stays correct
+            -- if the texture's anchor is ever disturbed elsewhere.
             if def.checked ~= nil then
                 local checked = def.checked
                 if type(checked) == "function" then
                     checked = checked(ctx)
                 end
+                self.check:ClearAllPoints()
+                self.check:SetPoint("LEFT", self, "LEFT", STYLE.paddingH, 0)
                 if checked then
                     self.check:Show()
                 else
