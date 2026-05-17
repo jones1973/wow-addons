@@ -1,7 +1,7 @@
 -- core/utils.lua (shared)
 -- Debug, chat, formatting, and collection helpers.
 
-local ADDON_NAME, Addon = ...
+local _, Addon = ...
 
 -- Create the utils module table
 Addon.utils = Addon.utils or {}
@@ -21,9 +21,8 @@ local debugSettings = {
 -- SIMPLIFIED PUBLIC API - COLON METHODS ONLY
 ----------------------------------------------------------
 
-function utils:chat(message, useShortName)
-    local name = useShortName and ADDON_NAME or (Addon.displayName or ADDON_NAME)
-    print("|cff33ff99" .. name .. "|r " .. message)
+function utils:chat(message)
+    Addon.theme.chat:line(message)
 end
 
 function utils:debug(message)
@@ -60,7 +59,7 @@ function utils:debug(message)
     
     local separator = (info.funcname ~= "") and " - " or " "
     local debugMsg = info.funcname .. separator .. message
-    self:chat("DEBUG: " .. debugMsg, true)
+    self:chat("DEBUG: " .. debugMsg)
 end
 
 function utils:notify(message)
@@ -70,7 +69,7 @@ end
 
 function utils:error(message)
     PlaySound(882) -- just a little something's wrong sound
-    self:chat("|cffff4444Error|r " .. message)
+    Addon.theme.chat:alarm(message)
 end
 
 -- Debug system management functions
@@ -233,25 +232,6 @@ function utils:truncate(text, len)
     return string.sub(text, 1, len - 2) .. ".."
 end
 
---[[
-  Tokenize text into words, preserving quoted strings as single tokens
-  and preserving WoW item links as single tokens regardless of the
-  whitespace inside the [Item Name] bracket portion.
-
-  Handles both single and double quotes. Item links are recognized by
-  the pattern `|cXXXXXXXX|Hitem:...|h[...]|h|r` (color code + hyperlink
-  envelope). When the scanner encounters this pattern at the current
-  position, it consumes the entire link as one token, bypassing the
-  normal whitespace-split rules.
-
-  @param text string - Text to tokenize
-  @return table - Array of tokens
-
-  Examples:
-    tokenize('beast "snow cub" rare') -> {"beast", '"snow cub"', "rare"}
-    tokenize('pawn |cff9d9d9d|Hitem:1234::::::::::|h[Ring of Foo]|h|r')
-      -> {"pawn", "|cff9d9d9d|Hitem:1234::::::::::|h[Ring of Foo]|h|r"}
-]]
 function utils:tokenize(text)
     if not text or text == "" then
         return {}
@@ -261,42 +241,24 @@ function utils:tokenize(text)
     local i = 1
     local len = #text
 
-    --[[
-      Try to match a WoW item link starting at position i. Returns the
-      link as a string and the position one past its end, or nil if the
-      text at i isn't the start of a link.
-
-      The pattern is anchored to the current position and intentionally
-      greedy about the inner `[...]` bracket (which is the only place
-      an item-link legitimately contains whitespace). Terminator is the
-      sequence `|h|r`.
-    ]]
     local function matchItemLinkAt(pos)
-        -- Must start with |c + 8 hex chars.
         if text:sub(pos, pos + 1) ~= "|c" then return nil end
         local hex = text:sub(pos + 2, pos + 9)
         if not hex:match("^%x%x%x%x%x%x%x%x$") then return nil end
 
-        -- Next must be |Hitem:
         if text:sub(pos + 10, pos + 16) ~= "|Hitem:" then return nil end
 
-        -- Find the terminating |h|r after a |h[...]|h sequence.
-        -- Anchor the pattern to pos so we match from the current position.
         local s, e = text:find("|h%[[^%]]*%]|h|r", pos + 16)
         if not s then return nil end
         return text:sub(pos, e), e + 1
     end
 
     while i <= len do
-        -- Skip whitespace between tokens.
         while i <= len and text:sub(i, i):match("%s") do
             i = i + 1
         end
         if i > len then break end
 
-        -- Item-link check BEFORE the generic token-building loop, so the
-        -- `|H...|h[Name With Spaces]|h|r` structure is consumed as one
-        -- token without the inner space triggering a token boundary.
         local link, nextPos = matchItemLinkAt(i)
         if link then
             table.insert(tokens, link)
@@ -341,15 +303,6 @@ end
 -- Function Helpers
 ----------------------------------------------------------
 
---[[
-  Create a debounced version of a function.
-  The returned function will only execute after `delay` seconds
-  of no calls. Useful for search inputs, resize handlers, etc.
-  
-  @param fn function - Function to debounce
-  @param delay number - Delay in seconds (default 0.3)
-  @return function - Debounced function
-]]
 function utils:debounce(fn, delay)
     delay = delay or 0.3
     local timer = nil

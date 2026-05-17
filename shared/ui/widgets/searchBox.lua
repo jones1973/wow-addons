@@ -151,12 +151,10 @@ function searchBox:create(config)
         
         -- Default tooltip
         clearBtn:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText("Clear", 1, 1, 1)
-            GameTooltip:Show()
+            Addon.tooltip:showSimple(self, "Clear", { anchor = "right" })
         end)
         clearBtn:SetScript("OnLeave", function()
-            GameTooltip:Hide()
+            Addon.tooltip:hide()
         end)
         
         box.clearButton = clearBtn

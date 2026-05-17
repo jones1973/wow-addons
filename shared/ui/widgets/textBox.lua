@@ -256,6 +256,15 @@ function textBox:create(config)
     -- ========================================================================
     
     box:SetScript("OnEditFocusLost", function(self)
+        -- Clear any selection so it doesn't visually persist after
+        -- focus moves to another field. Standard form-field behavior
+        -- is "selected only while focused"; WoW's EditBox doesn't do
+        -- this by default. SetCursorPosition(0) accompanies the
+        -- clear because in TBC Classic 2.5.5 the selection rectangle
+        -- can otherwise stay rendered even though the selection
+        -- state itself is empty.
+        self:ClearHighlightText()
+        self:SetCursorPosition(0)
         updatePlaceholder()
         -- Restore normal border
         self:SetBackdropBorderColor(unpack(DEFAULTS.borderColor))
@@ -291,14 +300,33 @@ function textBox:create(config)
     -- ========================================================================
     
     --[[
-      Set the text programmatically.
+      Set the text programmatically. Cursor resets to position 0 so
+      the visible portion of the field starts at the beginning of the
+      text — without this, the EditBox's internal scroll position
+      leaves long text appearing as a blank field with the visible
+      window past the text's end. Consumers that want a different
+      cursor position (e.g., focused field wanting select-all or
+      append) call SetCursorPosition / HighlightText after.
       @param text string
     ]]
     function box:SetBoxText(text)
         self:SetText(text or "")
+        self:SetCursorPosition(0)
         updatePlaceholder()
     end
     
+    --[[
+      Select all text in the box. Standard "edit pre-populated value"
+      affordance: caller does SetBoxText → SetFocus → SelectAll, and
+      the user can type to replace or press End / right-arrow to
+      keep the value and append. The focus-lost hook on this widget
+      clears the selection automatically when focus moves away, so
+      consumers don't need to manage the lifecycle.
+    ]]
+    function box:SelectAll()
+        self:HighlightText()
+    end
+
     --[[
       Get the current text.
       @return string

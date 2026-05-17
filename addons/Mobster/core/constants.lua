@@ -15,10 +15,17 @@ Addon.constants = {
     SOUND_COOLDOWN     = 5,    -- Minimum seconds between alert sounds
     ICON_ORDER         = { 8, 7, 6, 5, 4, 3, 2, 1 }, -- skull first, then down
 
-    -- SavedVariable schema version. Bumped only at release time when the
-    -- schema changes between versions shipped to users. During development
-    -- we leave it alone and wipe manually if needed.
-    SV_VERSION = 1,
+    -- SavedVariable schema versions, independent per SV so a schema
+    -- change to one doesn't wipe the other.
+    --
+    -- Rule: do NOT bump these during development. Schema changes
+    -- during active development are handled by wiping the SV
+    -- manually (mobster_character = nil mobster_settings = nil
+    -- ReloadUI). The version mechanism is reserved for release-time
+    -- bumps where actual users would otherwise have stale shapes on
+    -- disk.
+    CHARACTER_SV_VERSION = 1,
+    SETTINGS_SV_VERSION  = 1,
 
     -- 8pt grid spacing
     PADDING_TINY   = 4,

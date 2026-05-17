@@ -59,6 +59,7 @@ end
         { text = "Disabled", disabled = true/function(ctx) },
         { text = "Checked", checkable = true, checked = true/function(ctx) },
         { text = "Icon", icon = fileID, iconCoords = {l,r,t,b} },
+        { text = "Red", color = {1, 0.4, 0.4} },  -- {r,g,b[,a]} text color
         { separator = true },
         { text = "Submenu", submenu = { ... } }
       }

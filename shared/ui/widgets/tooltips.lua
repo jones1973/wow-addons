@@ -46,7 +46,7 @@ local FONT_HEADER = "GameTooltipHeaderText"
 local FONT_NORMAL = "GameTooltipText"
 local FONT_SMALL = "GameTooltipTextSmall"
 
-local COLOR_DEFAULT = {1, 0.82, 0}  -- Golden yellow
+local COLOR_DEFAULT = {1, 1, 1}  -- White; matches stock GameTooltip baseline
 local COLOR_WHITE = {1, 1, 1}
 
 -- ============================================================================
@@ -95,13 +95,20 @@ local function createFrame()
     edgeSize = 16,
     insets = { left = 4, right = 4, top = 4, bottom = 4 }
   })
-  
+  f:SetBackdropColor(0, 0, 0, 0.78)
+  f:SetBackdropBorderColor(1, 1, 1, 1)
+
   return f
 end
 
 -- Mirror GameTooltip's backdrop and colors onto our frame.
 -- Called each show() so we pick up whatever ElvUI/ToxiUI has applied.
+-- TBC 2.5.5 stock GameTooltip lacks BackdropTemplate methods; skip
+-- the mirror in that case and let our default backdrop stand. UI
+-- overhauls like ElvUI re-add the methods, in which case the mirror
+-- works.
 local function syncAppearance(f)
+  if not GameTooltip.GetBackdrop then return end
   local backdrop = GameTooltip:GetBackdrop()
   if backdrop then
     f:SetBackdrop(backdrop)
