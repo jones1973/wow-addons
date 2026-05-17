@@ -1,0 +1,4 @@
+<!-- logic/files.xml -->
+<Ui>
+    <Script file="scanner.lua"/>
+</Ui>

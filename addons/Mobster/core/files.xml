@@ -1,0 +1,9 @@
+<!-- core/files.xml -->
+<Ui>
+    <Script file="constants.lua"/>
+    <Script file="utils.lua"/>
+    <Include file="shared\files.xml"/>
+    <Script file="npcNameFilter.lua"/>
+    <Script file="questieHelpers.lua"/>
+    <Script file="itemDropIndex.lua"/>
+</Ui>

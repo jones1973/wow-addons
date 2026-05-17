@@ -1,0 +1,18 @@
+<!-- ui/shared/widgets/files.xml -->
+<!-- Load order:
+       Mixins first — composable capabilities widgets may apply.
+       panel/tooltips/textBox are independent and load next.
+       searchBox depends on textBox.
+       menuRenderer must load before contextMenu (its dependency).
+       typeaheadPicker depends on panel and pool (loaded earlier).
+-->
+<Ui>
+    <Include file="mixins\files.xml"/>
+    <Script file="panel.lua"/>
+    <Script file="textBox.lua"/>
+    <Script file="searchBox.lua"/>
+    <Script file="tooltips.lua"/>
+    <Script file="menuRenderer.lua"/>
+    <Script file="contextMenu.lua"/>
+    <Script file="typeaheadPicker.lua"/>
+</Ui>

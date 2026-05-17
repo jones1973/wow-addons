@@ -1,0 +1,4 @@
+<!-- ui/shared/files.xml -->
+<Ui>
+    <Include file="widgets\files.xml"/>
+</Ui>
