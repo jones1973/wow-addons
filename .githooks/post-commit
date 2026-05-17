@@ -1,0 +1,92 @@
+#!/bin/bash
+# .githooks/post-commit
+# After commits that touch upstream shared/, fan out the changes to
+# addon-local copies and auto-commit the result.
+#
+# Targeted: only paths actually modified, added, or deleted in HEAD
+# are propagated. Addon-local files unrelated to the commit (WIP
+# edits, divergent copies, hand-managed files) are left alone.
+#
+# Manifest regeneration is scoped to the directory of each deleted
+# file plus its ancestors up through the layer root, since a deletion
+# can cascade (subdir manifest empties out, parent's Include becomes
+# stale). Modifications and additions do not trigger manifest regen.
+#
+# Install: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+# Don't recurse on our own sync commits.
+if git log -1 --pretty=%B | grep -q '^sync: '; then
+    exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SYNC_SCRIPT="$REPO_ROOT/tools/sync.sh"
+
+[[ -x "$SYNC_SCRIPT" ]] || {
+    echo "post-commit: sync.sh not executable, skipping"
+    exit 0
+}
+
+# Collect .lua paths under shared/ from HEAD, split by status.
+modified=()
+deleted=()
+
+while IFS=$'\t' read -r status path; do
+    [[ "$path" =~ ^shared/.+\.lua$ ]] || continue
+    case "$status" in
+        A|M) modified+=("$path") ;;
+        D)   deleted+=("$path") ;;
+    esac
+done < <(git diff-tree --no-commit-id --name-status -r HEAD)
+
+# Nothing under shared/*.lua changed -> no work.
+if [[ ${#modified[@]} -eq 0 && ${#deleted[@]} -eq 0 ]]; then
+    exit 0
+fi
+
+# For each deletion, compute the ancestor manifest chain up to and
+# including the layer root (shared/core/files.xml, shared/ui/files.xml).
+# Dedup across all deletions.
+manifests=()
+if [[ ${#deleted[@]} -gt 0 ]]; then
+    declare -A seen
+    for path in "${deleted[@]}"; do
+        dir="$(dirname "$path")"
+        while [[ "$dir" == shared/* && "$dir" != shared ]]; do
+            tmpl="$dir/files.xml"
+            if [[ -z "${seen[$tmpl]:-}" ]]; then
+                manifests+=("$tmpl")
+                seen[$tmpl]=1
+            fi
+            dir="$(dirname "$dir")"
+        done
+    done
+fi
+
+# Assemble sync.sh args.
+args=()
+[[ ${#deleted[@]}   -gt 0 ]] && args+=(--delete    "${deleted[@]}")
+[[ ${#modified[@]}  -gt 0 ]] && args+=(--files     "${modified[@]}")
+[[ ${#manifests[@]} -gt 0 ]] && args+=(--manifests "${manifests[@]}")
+
+"$SYNC_SCRIPT" "${args[@]}" > /dev/null
+
+# Auto-commit if anything in addons/ changed.
+cd "$REPO_ROOT"
+if [[ -n "$(git status --porcelain -- addons/)" ]]; then
+    SHORT_SHA=$(git rev-parse --short HEAD)
+    SUBJECT=$(git log -1 --pretty=%s)
+    CHANGED=$(git status --porcelain -- addons/ | awk '{print "  " $0}')
+
+    git add -A addons/
+    git commit --no-verify -F - <<EOF
+sync: ${SUBJECT} [${SHORT_SHA}]
+
+Fanned out from ${SHORT_SHA}.
+
+Changed:
+${CHANGED}
+EOF
+fi

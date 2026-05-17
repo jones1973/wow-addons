@@ -1,96 +1,180 @@
 #!/bin/bash
 # tools/sync.sh
-# One-way sync: shared/ -> each addon's directories
+# Targeted one-way sync: shared/ -> each addon's directories.
 #
-# Presence-based: only updates .lua files that already exist in the addon.
-# To add a shared file to an addon, copy it in manually once.
-# After that, sync keeps it current.
+# All operations are scoped: callers pass explicit upstream paths.
+# Nothing is copied, deleted, or regenerated unless named on the
+# command line.
 #
-# Also generates files.xml manifests for shared directories using templates
-# from the shared repo, filtered to include only files present in the addon.
-# Generated manifests get a location header comment.
+# Flags (combinable in one invocation; order delete -> copy -> manifest):
+#
+#   --files PATH [PATH...]
+#       Copy each upstream path to addon-local copies that already
+#       exist. Presence-based per addon (no auto-onboarding).
+#
+#   --delete PATH [PATH...]
+#       Remove addon-local copies corresponding to each upstream path.
+#
+#   --manifests PATH [PATH...]
+#       Regenerate the addon-local manifest corresponding to each
+#       upstream files.xml template path named. Each is regenerated
+#       across all addons that have the corresponding subdirectory.
 #
 # Sync mappings:
-#   shared/core/ -> addon/core/shared/
-#   shared/ui/   -> addon/ui/shared/
+#   shared/core/X -> addons/<addon>/core/shared/X
+#   shared/ui/X   -> addons/<addon>/ui/shared/X
 #
-# Usage:
-#   ./tools/sync.sh          # sync all addons
-#   ./tools/sync.sh --check  # dry run, exit 1 if anything is stale
+# Manifest regen produces:
+#   - Template <Script> entries kept if the addon-local file exists.
+#   - Template <Include> entries kept if the included manifest exists
+#     in the addon (preserved at the template author's position; this
+#     is the override for "load child before parent" cases).
+#   - Auto-emitted <Include> entries for any immediate-child subdir
+#     containing files.xml that the template did NOT already list,
+#     appended at the END so parent Scripts load before child folders.
+#   - If no entries survive AND no subdirs are present, the manifest
+#     is removed.
+#
+# Intended caller: .githooks/post-commit, after a commit touching
+# shared/. Manual invocation is supported.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SHARED_CORE="$REPO_ROOT/shared/core"
-SHARED_UI="$REPO_ROOT/shared/ui"
+SHARED_DIR="$REPO_ROOT/shared"
 ADDONS_DIR="$REPO_ROOT/addons"
 
-CHECK_ONLY=false
-if [[ "${1:-}" == "--check" ]]; then
-    CHECK_ONLY=true
+# ---- arg parsing ----
+
+files=()
+deletes=()
+manifests=()
+
+mode=""
+for arg in "$@"; do
+    case "$arg" in
+        --files)     mode="files" ;;
+        --delete)    mode="delete" ;;
+        --manifests) mode="manifests" ;;
+        --*)
+            echo "unknown flag: $arg" >&2
+            exit 2
+            ;;
+        *)
+            case "$mode" in
+                files)     files+=("$arg") ;;
+                delete)    deletes+=("$arg") ;;
+                manifests) manifests+=("$arg") ;;
+                "")
+                    echo "stray arg before flag: $arg" >&2
+                    exit 2
+                    ;;
+            esac
+            ;;
+    esac
+done
+
+if [[ ${#files[@]} -eq 0 && ${#deletes[@]} -eq 0 && ${#manifests[@]} -eq 0 ]]; then
+    cat <<'EOF' >&2
+usage: sync.sh [--files PATH...] [--delete PATH...] [--manifests PATH...]
+
+  --files     PATH...   Copy each upstream path to addons that have it.
+  --delete    PATH...   Remove addon-local copies of each path.
+  --manifests PATH...   Regenerate the addon-local manifest for each
+                        upstream files.xml template path.
+
+Flags are combinable; operations run in order delete -> copy -> manifests.
+EOF
+    exit 1
 fi
 
-# Counters (use temp file to avoid subshell scoping)
-counter_file=$(mktemp)
-echo "0 0" > "$counter_file"
-trap "rm -f '$counter_file'" EXIT
-
-sync_file() {
-    local src="$1"
-    local dst="$2"
-    local label="$3"
-
-    if [[ ! -f "$dst" ]]; then
-        return
+# Translate an upstream path (shared/<layer>/<rest>) to its addon-local
+# equivalent (<addon_dir>/<layer>/shared/<rest>). Echoes empty if the
+# path doesn't match a supported shape (under shared/, layer core or ui).
+addon_local_path() {
+    local upstream="$1"
+    local addon_dir="$2"
+    local rel="${upstream#shared/}"
+    if [[ "$rel" == "$upstream" ]]; then
+        return 0
     fi
-
-    if cmp -s "$src" "$dst"; then
-        return
+    local layer="${rel%%/*}"
+    local sub="${rel#*/}"
+    if [[ "$layer" != "core" && "$layer" != "ui" ]]; then
+        return 0
     fi
-
-    read -r updated stale < "$counter_file"
-
-    if $CHECK_ONLY; then
-        echo "STALE: $label"
-        echo "$updated $((stale + 1))" > "$counter_file"
-    else
-        cp "$src" "$dst"
-        echo "sync: $label (updated)"
-        echo "$((updated + 1)) $stale" > "$counter_file"
-    fi
+    echo "${addon_dir}${layer}/shared/${sub}"
 }
 
-# Generate a files.xml manifest from a shared template, filtered by presence.
-# Reads a template files.xml, keeps only <Script> lines whose .lua files exist
-# and <Include> lines whose target directories exist in the addon.
-# Writes the result with a header comment.
-#
-# Args: $1 = template path, $2 = addon target dir, $3 = header comment path
+# ---- deletes ----
+
+if [[ ${#deletes[@]} -gt 0 ]]; then
+    for upstream in "${deletes[@]}"; do
+        for addon_dir in "$ADDONS_DIR"/*/; do
+            [[ -d "$addon_dir" ]] || continue
+            local_path="$(addon_local_path "$upstream" "$addon_dir")"
+            [[ -z "$local_path" ]] && continue
+            if [[ -f "$local_path" ]]; then
+                rm "$local_path"
+                echo "removed: ${local_path#$REPO_ROOT/}"
+            fi
+        done
+    done
+fi
+
+# ---- copies ----
+
+if [[ ${#files[@]} -gt 0 ]]; then
+    for upstream in "${files[@]}"; do
+        src="$REPO_ROOT/$upstream"
+        if [[ ! -f "$src" ]]; then
+            echo "skipped: $upstream (not present upstream)" >&2
+            continue
+        fi
+        for addon_dir in "$ADDONS_DIR"/*/; do
+            [[ -d "$addon_dir" ]] || continue
+            local_path="$(addon_local_path "$upstream" "$addon_dir")"
+            [[ -z "$local_path" ]] && continue
+            if [[ -f "$local_path" ]]; then
+                if ! cmp -s "$src" "$local_path"; then
+                    cp "$src" "$local_path"
+                    echo "updated: ${local_path#$REPO_ROOT/}"
+                fi
+            fi
+        done
+    done
+fi
+
+# ---- manifests ----
+
+# Regenerate the manifest for one addon's directory from an upstream
+# template. Two sources of entries:
+#   1) Lines from the template (<Script> and <Include>), filtered by
+#      presence locally, in template order.
+#   2) Auto-emitted <Include> lines for immediate-child subdirs that
+#      contain files.xml and weren't covered by template <Include>s,
+#      appended at the end.
 generate_manifest() {
     local template="$1"
     local target_dir="$2"
     local header_path="$3"
     local output="$target_dir/files.xml"
 
-    if [[ ! -f "$template" ]]; then
-        return
-    fi
+    [[ -f "$template" ]] || return 0
 
-    # Build filtered content
-    local content=""
-    content="<!-- ${header_path} (auto-generated by sync.sh -- do not edit) -->"
-    content="$content
+    local content
+    content="<!-- ${header_path} (auto-generated by sync.sh -- do not edit) -->
 <Ui>"
 
     local has_entries=false
+    local template_includes=()  # subdir names already covered by template
 
+    # Pass 1: template-driven entries.
     while IFS= read -r line; do
-        # Skip existing Ui tags, XML declarations, and comment lines
         case "$line" in
             *"<Ui>"*|*"</Ui>"*|*"<?xml"*|*"<!--"*) continue ;;
         esac
 
-        # Check <Script file="..."/> lines — file must exist
         if echo "$line" | grep -q '<Script file='; then
             local filename
             filename=$(echo "$line" | sed -n 's/.*file="\([^"]*\)".*/\1/p')
@@ -100,120 +184,102 @@ generate_manifest() {
 $line"
                 has_entries=true
             fi
-        # Check <Include file="..."/> lines — target directory must exist
         elif echo "$line" | grep -q '<Include file='; then
             local inc_path
             inc_path=$(echo "$line" | sed -n 's/.*file="\([^"]*\)".*/\1/p')
             local normalized="${inc_path//\\//}"
-            local inc_dir
-            inc_dir="$(dirname "$target_dir/$normalized")"
-            if [[ -d "$inc_dir" ]]; then
+            # Include kept iff the referenced manifest exists locally.
+            if [[ -f "$target_dir/$normalized" ]]; then
                 content="$content
 $line"
                 has_entries=true
+                # Track first path component so auto-Include doesn't dup it.
+                local first="${normalized%%/*}"
+                template_includes+=("$first")
             fi
         fi
     done < "$template"
 
+    # Pass 2: auto-Include any subdir with files.xml not in template.
+    # Sorted for stable output.
+    local subdir
+    while IFS= read -r subdir; do
+        [[ -n "$subdir" ]] || continue
+        local name
+        name="$(basename "$subdir")"
+        local already=false
+        local t
+        for t in ${template_includes[@]+"${template_includes[@]}"}; do
+            if [[ "$t" == "$name" ]]; then
+                already=true
+                break
+            fi
+        done
+        $already && continue
+        content="$content
+    <Include file=\"${name}\\files.xml\"/>"
+        has_entries=true
+    done < <(find "$target_dir" -mindepth 2 -maxdepth 2 -name 'files.xml' \
+                 -printf '%h\n' 2>/dev/null | sort)
+
     content="$content
 </Ui>"
 
-    # Only write if there are entries
     if ! $has_entries; then
         if [[ -f "$output" ]]; then
-            if ! $CHECK_ONLY; then
-                rm "$output"
-                echo "manifest: $header_path (removed -- no shared files present)"
-                read -r updated stale < "$counter_file"
-                echo "$((updated + 1)) $stale" > "$counter_file"
-            fi
+            rm "$output"
+            echo "removed manifest: ${output#$REPO_ROOT/}"
         fi
-        return
+        return 0
     fi
 
-    # Check if content differs from existing
     if [[ -f "$output" ]] && echo "$content" | cmp -s "$output" -; then
-        return
+        return 0
     fi
 
-    read -r updated stale < "$counter_file"
-
-    if $CHECK_ONLY; then
-        echo "STALE: $header_path"
-        echo "$updated $((stale + 1))" > "$counter_file"
-    else
-        echo "$content" > "$output"
-        echo "manifest: $header_path (generated)"
-        echo "$((updated + 1)) $stale" > "$counter_file"
-    fi
+    echo "$content" > "$output"
+    echo "manifest: ${output#$REPO_ROOT/}"
+    return 0
 }
 
-for addon_dir in "$ADDONS_DIR"/*/; do
-    [[ -d "$addon_dir" ]] || continue
-    addon_name="$(basename "$addon_dir")"
+if [[ ${#manifests[@]} -gt 0 ]]; then
+    for template_path in "${manifests[@]}"; do
+        if [[ "$template_path" != shared/*/files.xml ]]; then
+            echo "skipped: $template_path (not an upstream files.xml path)" >&2
+            continue
+        fi
+        rel="${template_path#shared/}"
+        layer="${rel%%/*}"
+        if [[ "$layer" != "core" && "$layer" != "ui" ]]; then
+            echo "skipped: $template_path (unsupported layer)" >&2
+            continue
+        fi
+        # Subpath within layer leading to the manifest's directory.
+        # For shared/ui/widgets/files.xml -> sub_dir = widgets
+        # For shared/ui/files.xml         -> sub_dir = ""
+        rest="${rel#$layer/}"
+        if [[ "$rest" == "files.xml" ]]; then
+            sub_dir=""
+        else
+            sub_dir="${rest%/files.xml}"
+        fi
 
-    # shared/core/ -> addon/core/shared/
-    if [[ -d "$SHARED_CORE" ]]; then
-        while IFS= read -r src; do
-            rel="${src#$SHARED_CORE/}"
-            dst="${addon_dir}core/shared/$rel"
-            sync_file "$src" "$dst" "shared/core/$rel -> $addon_name/core/shared/$rel"
-        done < <(find "$SHARED_CORE" -name '*.lua' | sort)
+        template_full="$REPO_ROOT/$template_path"
 
-        # Generate manifests — subdirectories first (deepest first),
-        # then root, so Include targets exist when the parent checks
-        while IFS= read -r template; do
-            local_dir="$(dirname "$template")"
-            rel_dir="${local_dir#$SHARED_CORE/}"
-            generate_manifest \
-                "$template" \
-                "${addon_dir}core/shared/$rel_dir" \
-                "$addon_name/core/shared/$rel_dir/files.xml"
-        done < <(find "$SHARED_CORE" -mindepth 2 -name 'files.xml' | sort -r)
+        for addon_dir in "$ADDONS_DIR"/*/; do
+            [[ -d "$addon_dir" ]] || continue
+            addon_name="$(basename "$addon_dir")"
+            target_dir="${addon_dir}${layer}/shared"
+            [[ -n "$sub_dir" ]] && target_dir="${target_dir}/${sub_dir}"
+            [[ -d "$target_dir" ]] || continue
 
-        generate_manifest \
-            "$SHARED_CORE/files.xml" \
-            "${addon_dir}core/shared" \
-            "$addon_name/core/shared/files.xml"
-    fi
+            header_relpath="${addon_name}/${layer}/shared"
+            [[ -n "$sub_dir" ]] && header_relpath="${header_relpath}/${sub_dir}"
+            header_relpath="${header_relpath}/files.xml"
 
-    # shared/ui/ -> addon/ui/shared/
-    if [[ -d "$SHARED_UI" ]]; then
-        while IFS= read -r src; do
-            rel="${src#$SHARED_UI/}"
-            dst="${addon_dir}ui/shared/$rel"
-            sync_file "$src" "$dst" "shared/ui/$rel -> $addon_name/ui/shared/$rel"
-        done < <(find "$SHARED_UI" -name '*.lua' | sort)
-
-        # Generate manifests — subdirectories first, then root
-        while IFS= read -r template; do
-            local_dir="$(dirname "$template")"
-            rel_dir="${local_dir#$SHARED_UI/}"
-            generate_manifest \
-                "$template" \
-                "${addon_dir}ui/shared/$rel_dir" \
-                "$addon_name/ui/shared/$rel_dir/files.xml"
-        done < <(find "$SHARED_UI" -mindepth 2 -name 'files.xml' | sort -r)
-
-        generate_manifest \
-            "$SHARED_UI/files.xml" \
-            "${addon_dir}ui/shared" \
-            "$addon_name/ui/shared/files.xml"
-    fi
-done
-
-read -r updated stale < "$counter_file"
-
-if $CHECK_ONLY; then
-    if [[ $stale -gt 0 ]]; then
-        echo ""
-        echo "$stale file(s) out of sync. Run ./tools/sync.sh to update."
-        exit 1
-    else
-        echo "All shared files in sync."
-        exit 0
-    fi
-else
-    echo ""
-    echo "$updated file(s) updated."
+            generate_manifest "$template_full" "$target_dir" "$header_relpath"
+        done
+    done
 fi
+
+exit 0
