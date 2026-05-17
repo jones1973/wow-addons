@@ -1,4 +1,0 @@
-<!-- ui/shared/widgets/mixins/files.xml -->
-<Ui>
-    <Script file="overflowTooltipMixin.lua"/>
-</Ui>
