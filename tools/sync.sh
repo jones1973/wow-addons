@@ -243,7 +243,22 @@ $line"
 }
 
 if [[ ${#manifests[@]} -gt 0 ]]; then
-    for template_path in "${manifests[@]}"; do
+    # Sort deepest-first so child manifests are regenerated before
+    # parents that may Include them. Parent regen checks for the
+    # child's existence on disk; if regen ran parent-first, the
+    # child wouldn't exist yet and the Include would be dropped.
+    # sort -r on the slash-count keeps deeper paths first.
+    sorted_manifests=()
+    while IFS= read -r line; do
+        sorted_manifests+=("${line#*$'\t'}")
+    done < <(
+        for m in "${manifests[@]}"; do
+            depth=$(tr -cd '/' <<< "$m" | wc -c)
+            printf '%s\t%s\n' "$depth" "$m"
+        done | sort -rn
+    )
+
+    for template_path in "${sorted_manifests[@]}"; do
         if [[ "$template_path" != shared/*/files.xml ]]; then
             echo "skipped: $template_path (not an upstream files.xml path)" >&2
             continue
