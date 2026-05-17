@@ -46,7 +46,7 @@ local FONT_HEADER = "GameTooltipHeaderText"
 local FONT_NORMAL = "GameTooltipText"
 local FONT_SMALL = "GameTooltipTextSmall"
 
-local COLOR_DEFAULT = {1, 0.82, 0}  -- Golden yellow
+local COLOR_DEFAULT = {1, 1, 1}  -- White; matches stock GameTooltip baseline
 local COLOR_WHITE = {1, 1, 1}
 
 -- ============================================================================

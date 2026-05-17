@@ -25,7 +25,9 @@
     reasonTypeahead:commitHighlight()
     reasonTypeahead:setNpcContext(npcName)  -- nil clears
 
-  Where onPick(itemName) — single arg.
+  Where onPick(itemName, itemId) — the itemId lets callers stamp the
+  picked entry with provenance so the rich item tooltip becomes
+  available on hover.
 
   Dependencies: typeaheadPicker, panel, pool, itemDropIndex
   Exports: Addon.reasonTypeahead
@@ -71,7 +73,14 @@ local function buildResults(text)
     for _, itemId in ipairs(contextItemIds) do
         local name = Addon.itemDropIndex:itemName(itemId)
         if name and name:lower():find(lower, 1, true) then
-            results[#results + 1] = { kind = "row", data = { itemName = name } }
+            results[#results + 1] = {
+                kind = "row",
+                data = {
+                    itemId   = itemId,
+                    itemName = name,
+                    quality  = Addon.itemDropIndex:itemQuality(itemId),
+                },
+            }
             if #results >= MAX_RESULTS then break end
         end
     end
@@ -81,31 +90,6 @@ local function buildResults(text)
         return a.data.itemName < b.data.itemName
     end)
     return results
-end
-
--- ============================================================================
--- ROW FACTORY & RENDERER
--- ============================================================================
-
-local function rowFactory(parent)
-    local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(ROW_HEIGHT)
-
-    local nameFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    nameFS:SetPoint("TOPLEFT", ROW_INSET, -ROW_TEXT_TOP)
-    nameFS:SetPoint("TOPRIGHT", -ROW_INSET, -ROW_TEXT_TOP)
-    nameFS:SetJustifyH("LEFT")
-    nameFS:SetWordWrap(false)
-    row.nameFS = nameFS
-
-    Mixin(row, Addon.overflowTooltipMixin)
-    row:InitOverflowTooltip()
-
-    return row
-end
-
-local function rowRender(row, item)
-    row:SetOverflowText(row.nameFS, item.data.itemName)
 end
 
 -- ============================================================================
@@ -151,6 +135,15 @@ end
 ]]
 function reasonTypeahead:setNpcContext(npcName)
     contextItemIds = Addon.itemDropIndex:itemsForNpc(npcName)
+    -- Warm the quality cache for these items. GetItemInfo on a not-
+    -- yet-cached item triggers a server fetch; doing this on context-
+    -- set means the round-trip can complete before the user reaches
+    -- the chevron, so the dropdown opens with full quality coloring
+    -- the common case. Late arrivals come in via the
+    -- "MOBSTER:QUALITY_RESOLVED" event subscribed in attach().
+    if contextItemIds and #contextItemIds > 0 then
+        Addon.itemDropIndex:prefetchQualitiesFor(contextItemIds)
+    end
 end
 
 --[[
@@ -166,24 +159,65 @@ function reasonTypeahead:attach(editBox, parent, width, onPick, opts)
     picker = Addon.typeaheadPicker:create({
         runQuery = buildResults,
 
-        factories = { row = rowFactory },
-        renderers = { row = rowRender },
-        heights   = { row = ROW_HEIGHT },
+        rows = {
+            row = {
+                pickable = true,
+                height   = ROW_HEIGHT,
+                texts = {
+                    { key = "nameFS", font = "GameFontHighlight",
+                      points = {
+                        { "TOPLEFT",   ROW_INSET, -ROW_TEXT_TOP },
+                        { "TOPRIGHT", -ROW_INSET, -ROW_TEXT_TOP },
+                      } },
+                },
+                overflowTooltip = true,
+                render = function(row, item)
+                    row:SetOverflowText(row.nameFS, item.data.itemName)
+                    -- Quality coloring: standard Blizzard quality token if
+                    -- quality is known. Nil → leave font at its default
+                    -- (GameFontHighlight white), which renders pre-resolution
+                    -- items as neutral until GET_ITEM_INFO_RECEIVED backfills.
+                    local q = item.data.quality
+                    local token = q and Addon.theme.derive.qualityFor(q)
+                    if token then
+                        row.nameFS:SetTextColor(token.r, token.g, token.b)
+                    else
+                        -- Reset to the font object's default (white) in case
+                        -- this row was recycled from a colored entry.
+                        row.nameFS:SetTextColor(1, 1, 1)
+                    end
+                end,
+            },
+        },
 
         debounce        = DEBOUNCE,
         minQueryLen     = MIN_QUERY_LEN,
         maxResults      = MAX_RESULTS,
         visibleMaxRows  = VISIBLE_ROWS,
         scrollFrameName = SCROLL_FRAME_NAME,
+        showChevron     = true,
 
         onPick = function(item)
             if onUserPick and item.kind == "row" then
-                onUserPick(item.data.itemName)
+                onUserPick(item.data.itemName, item.data.itemId)
             end
         end,
     })
 
     picker:attach(editBox, parent, width, opts)
+
+    -- Late-arriving quality data: when GetItemInfo backfills an
+    -- itemId we care about (or any other; the publisher already
+    -- filters to indexed items), refresh the dropdown if it's
+    -- currently open. The refresh re-runs buildResults, which picks
+    -- up the new quality and re-renders rows with the correct
+    -- color. Cheap because the result set is bounded by the current
+    -- NPC's drops (typically <20 items).
+    Addon.events:subscribe("MOBSTER:QUALITY_RESOLVED", function()
+        if picker and picker:isShown() then
+            picker:onQuery(editBox:GetText() or "")
+        end
+    end)
 end
 
 function reasonTypeahead:initialize()

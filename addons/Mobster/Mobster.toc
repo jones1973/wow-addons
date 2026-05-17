@@ -3,10 +3,11 @@
 ## Notes: Find, mark, and alert on mobs by partial name match
 ## Author: You
 ## Version: 1.0.0
+## SavedVariables: mobster_settings
 ## SavedVariablesPerCharacter: mobster_character
-## OptionalDeps: Questie
+## OptionalDeps: Questie, ItemVersion
 
-## Core (constants, utils, shared primitives)
+## Core (constants, theme, utils, shared primitives)
 core\files.xml
 
 ## Game Logic

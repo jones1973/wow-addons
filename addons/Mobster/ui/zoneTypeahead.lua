@@ -123,31 +123,6 @@ local function buildResults(text)
 end
 
 -- ============================================================================
--- ROW FACTORY & RENDERER
--- ============================================================================
-
-local function rowFactory(parent)
-    local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(ROW_HEIGHT)
-
-    local nameFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    nameFS:SetPoint("TOPLEFT", ROW_INSET, -ROW_TEXT_TOP)
-    nameFS:SetPoint("TOPRIGHT", -ROW_INSET, -ROW_TEXT_TOP)
-    nameFS:SetJustifyH("LEFT")
-    nameFS:SetWordWrap(false)
-    row.nameFS = nameFS
-
-    Mixin(row, Addon.overflowTooltipMixin)
-    row:InitOverflowTooltip()
-
-    return row
-end
-
-local function rowRender(row, item)
-    row:SetOverflowText(row.nameFS, item.data.zone)
-end
-
--- ============================================================================
 -- PUBLIC API — wraps the shared picker
 -- ============================================================================
 
@@ -194,9 +169,23 @@ function zoneTypeahead:attach(editBox, parent, width, onPick, opts)
     picker = Addon.typeaheadPicker:create({
         runQuery = buildResults,
 
-        factories = { row = rowFactory },
-        renderers = { row = rowRender },
-        heights   = { row = ROW_HEIGHT },
+        rows = {
+            row = {
+                pickable = true,
+                height   = ROW_HEIGHT,
+                texts = {
+                    { key = "nameFS", font = "GameFontHighlight",
+                      points = {
+                        { "TOPLEFT",   ROW_INSET, -ROW_TEXT_TOP },
+                        { "TOPRIGHT", -ROW_INSET, -ROW_TEXT_TOP },
+                      } },
+                },
+                overflowTooltip = true,
+                render = function(row, item)
+                    row:SetOverflowText(row.nameFS, item.data.zone)
+                end,
+            },
+        },
 
         debounce        = DEBOUNCE,
         minQueryLen     = MIN_QUERY_LEN,

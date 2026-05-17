@@ -35,7 +35,7 @@
   Exports: Addon.editPanel
 ]]
 
-local ADDON_NAME, Addon = ...
+local _, Addon = ...
 
 local editPanel = {}
 
@@ -91,9 +91,17 @@ local reasonBox
 local saveBtn
 
 -- The watchList-supplied callback fired when Save is clicked. Receives a
--- {name, zone, reason} table; nil-or-empty zone/reason dropped by the
--- caller before save.
+-- {name, zone, reason, sourceItemIds} table; nil-or-empty fields dropped
+-- by the caller before save.
 local onSubmitFn
+
+-- Source-itemIds for the currently-open entry. Non-nil and non-empty
+-- when the entry came from Add by Item AND the reason text hasn't
+-- been touched by the user this session. Cleared the moment the
+-- user types into the reason field. Used by the reason-hover
+-- tooltip to switch from plain text to a rich item tooltip when
+-- the source is unambiguous.
+local sourceItemIds
 
 -- ============================================================================
 -- INTERNAL HELPERS
@@ -111,9 +119,13 @@ local function refreshSaveEnabled()
 end
 
 --[[
-  Apply a {name, zone, reason} table to the panel's fields, or clear all
-  fields when entryData is nil (add mode). textBox provides SetBoxText
-  which also updates placeholder visibility.
+  Apply a {name, zone, reason, sourceItemIds} table to the panel's
+  fields, or clear all fields when entryData is nil (add mode).
+  textBox provides SetBoxText which also updates placeholder
+  visibility.
+
+  sourceItemIds is captured into the module-level slot; the reason
+  field's OnTextChanged clears it on the first user edit.
 
   @param entryData table|nil
 ]]
@@ -122,8 +134,13 @@ local function loadFields(entryData)
     nameBox:SetBoxText(entryData.name or "")
     zoneBox:SetBoxText(entryData.zone or "")
     reasonBox:SetBoxText(entryData.reason or "")
-    nameBox:SetCursorPosition(#(entryData.name or ""))
     nameBox:SetFocus()
+    -- Modal edit-dialog convention: pre-populated focused field is
+    -- selected, so typing replaces the value wholesale. Selection
+    -- auto-clears when focus moves to another field — that lifecycle
+    -- is owned by textBox.
+    nameBox:SelectAll()
+    sourceItemIds = entryData.sourceItemIds
     refreshSaveEnabled()
 end
 
@@ -140,9 +157,10 @@ local function doSave()
     local reason = trim(reasonBox:GetText() or "")
 
     onSubmitFn({
-        name   = name,
-        zone   = (zone   ~= "") and zone   or nil,
-        reason = (reason ~= "") and reason or nil,
+        name           = name,
+        zone           = (zone   ~= "") and zone   or nil,
+        reason         = (reason ~= "") and reason or nil,
+        sourceItemIds  = sourceItemIds,
     })
 
     editPanel:close()
@@ -225,8 +243,14 @@ function editPanel:open(parent, entryData, onSave)
     titleFS:SetText(entryData and "Edit Entry" or "Add Entry")
 
     ensureController(parent)
-    loadFields(entryData)
+    -- Show the panel BEFORE populating fields. SetFocus on an unshown
+    -- EditBox is a no-op in WoW Classic — the editbox accepts the
+    -- selection state from HighlightText, but the focus assignment
+    -- silently fails, so subsequent OnEditFocusLost never fires when
+    -- the user clicks another field. Showing first ensures focus
+    -- assignment in loadFields actually takes.
     panelController:show()
+    loadFields(entryData)
 end
 
 function editPanel:close()
@@ -322,6 +346,13 @@ local function buildFrame()
         NAME_LBL_Y - 2 * FIELD_STEP, REASON_MAX_LETTERS,
         "Ironshield Potion Recipe",
         function(text, userInput)
+            -- Any user-initiated edit invalidates the item-tooltip
+            -- gate, even if the user retypes the exact same string
+            -- the canonical source produced. The flag tracks
+            -- authorship intent, not string identity.
+            if userInput then
+                sourceItemIds = nil
+            end
             if userInput and reasonTypeahead then
                 reasonTypeahead:onQuery(text)
             end
@@ -366,6 +397,23 @@ local function buildFrame()
     end)
     reasonBox:HookScript("OnEditFocusLost", function()
         if reasonTypeahead then reasonTypeahead:hide() end
+    end)
+
+    -- Reason hover → item tooltip (when the source is unambiguous).
+    -- The gate is "single item, sourceItemIds intact" — multi-item
+    -- entries fall back to no tooltip on the reason box (the box
+    -- displays the full text already, so an additional plain-text
+    -- tooltip would be redundant; multi-item rich tooltips would be
+    -- ugly per the design call).
+    reasonBox:HookScript("OnEnter", function(self)
+        if sourceItemIds and #sourceItemIds == 1 then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetItemByID(sourceItemIds[1])
+            GameTooltip:Show()
+        end
+    end)
+    reasonBox:HookScript("OnLeave", function()
+        GameTooltip:Hide()
     end)
 
     -- Two-stage Escape / Enter for typeahead-aware fields. The shared
@@ -467,7 +515,7 @@ local function buildFrame()
         -- (handled inside picker:attach) so it visually tracks the
         -- panel; only its parenting differs.
         Addon.nameTypeahead:attach(nameBox, UIParent, dropdownWidth,
-            onTypeaheadPick, { growDownward = true, strata = "DIALOG" })
+            onTypeaheadPick, { growDownward = true })
     end
 
     -- Zone typeahead, attached to the zone field. Picks fill the zone
@@ -481,20 +529,27 @@ local function buildFrame()
     if Addon.zoneTypeahead then
         local dropdownWidth = PANEL_W - PANEL_PAD * 2
         Addon.zoneTypeahead:attach(zoneBox, UIParent, dropdownWidth,
-            onZonePick, { growDownward = true, strata = "DIALOG" })
+            onZonePick, { growDownward = true })
     end
 
     -- Reason typeahead, attached to the reason field. Picks fill the
-    -- reason box only — final field, no need to chain focus.
-    local function onReasonPick(itemName)
+    -- reason box and stamp the picked item's id onto sourceItemIds —
+    -- this is the user asserting "this reason IS this item," which is
+    -- the same authorship signal Add-by-Item provides. The rich item
+    -- tooltip becomes available on hover. If subsequent keyboard
+    -- editing happens, the reasonBox OnTextChanged handler clears
+    -- sourceItemIds; programmatic SetBoxText below doesn't trigger
+    -- that path (userInput=false).
+    local function onReasonPick(itemName, itemId)
         reasonBox:SetBoxText(itemName)
         reasonBox:SetCursorPosition(#itemName)
+        sourceItemIds = itemId and { itemId } or nil
     end
 
     if Addon.reasonTypeahead then
         local dropdownWidth = PANEL_W - PANEL_PAD * 2
         Addon.reasonTypeahead:attach(reasonBox, UIParent, dropdownWidth,
-            onReasonPick, { growDownward = true, strata = "DIALOG" })
+            onReasonPick, { growDownward = true })
     end
 end
 
@@ -504,24 +559,24 @@ function editPanel:initialize()
     reasonTypeahead   = Addon.reasonTypeahead
 
     if not Addon.panel then
-        print("|cff33ff99" .. ADDON_NAME .. "|r: |cffff4444editPanel: Missing dependency 'panel'|r")
+        Addon.theme.chat:alarm("editPanel: Missing dependency 'panel'")
         return false
     end
     if not Addon.searchBox then
-        print("|cff33ff99" .. ADDON_NAME .. "|r: |cffff4444editPanel: Missing dependency 'searchBox'|r")
+        Addon.theme.chat:alarm("editPanel: Missing dependency 'searchBox'")
         return false
     end
 
     -- All three typeaheads are optional; the panel still functions
     -- without them, just without autocomplete on those fields.
     if not nameTypeahead then
-        print("|cff33ff99" .. ADDON_NAME .. "|r: editPanel: nameTypeahead unavailable; name field will be plain text")
+        Addon.utils:chat("editPanel: nameTypeahead unavailable; name field will be plain text")
     end
     if not zoneTypeahead then
-        print("|cff33ff99" .. ADDON_NAME .. "|r: editPanel: zoneTypeahead unavailable; zone field will be plain text")
+        Addon.utils:chat("editPanel: zoneTypeahead unavailable; zone field will be plain text")
     end
     if not reasonTypeahead then
-        print("|cff33ff99" .. ADDON_NAME .. "|r: editPanel: reasonTypeahead unavailable; reason field will be plain text")
+        Addon.utils:chat("editPanel: reasonTypeahead unavailable; reason field will be plain text")
     end
 
     buildFrame()

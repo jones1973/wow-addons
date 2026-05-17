@@ -3,7 +3,9 @@
        Mixins first — composable capabilities widgets may apply.
        panel/tooltips/textBox are independent and load next.
        searchBox depends on textBox.
-       menuRenderer must load before contextMenu (its dependency).
+       menuRenderer must load before contextMenu and dropdown.
+       toggle is independent; clickableLabel is independent;
+       labeledToggle depends on toggle + clickableLabel.
        typeaheadPicker depends on panel and pool (loaded earlier).
 -->
 <Ui>
@@ -14,5 +16,10 @@
     <Script file="tooltips.lua"/>
     <Script file="menuRenderer.lua"/>
     <Script file="contextMenu.lua"/>
+    <Script file="dropdown.lua"/>
+    <Script file="toggle.lua"/>
+    <Script file="clickableLabel.lua"/>
+    <Script file="labeledToggle.lua"/>
     <Script file="typeaheadPicker.lua"/>
+    <Script file="listView.lua"/>
 </Ui>

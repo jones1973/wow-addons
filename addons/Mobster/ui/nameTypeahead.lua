@@ -57,10 +57,11 @@ local ROW_ZONE_INDENT = 4
 -- Header layout
 local HEADER_INSET    = 10
 
--- Color palette (current-zone accent + gold band on headers)
-local GOLD_R, GOLD_G, GOLD_B = 1.00, 0.82, 0.00
-local ACCENT_W                = 3
-local HEADER_BG_ALPHA         = 0.10
+-- Current-zone accent stripe width, and the alpha for the gold header
+-- band. The gold rgb itself reads from theme.tokens.TEXT.EMPHASIS at
+-- use sites (Blizzard gold = "current/important", per THEME.md §13).
+local ACCENT_W       = 3
+local HEADER_BG_ALPHA = 0.10
 
 local function resolveQuestie()
     local loader = _G.QuestieLoader
@@ -248,49 +249,12 @@ local function withHeaders(rows)
 end
 
 -- ============================================================================
--- ROW + HEADER FACTORIES & RENDERERS (consumed by typeaheadPicker)
+-- ROW + HEADER RENDER FUNCTIONS
+-- (Construction is declarative — see the `rows` spec in :attach below.)
 -- ============================================================================
 
--- Forward decl — picker is created after factories below.
+-- Forward decl — picker is created after renderers below.
 local picker
-
-local function rowFactory(parent)
-    local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(ROW_HEIGHT)
-
-    -- Current-zone accent stripe (gold), shown only when the row's
-    -- entry has data.here=true. Sits in front of the chrome's hover
-    -- texture (which is BACKGROUND).
-    local accent = row:CreateTexture(nil, "ARTWORK")
-    accent:SetPoint("TOPLEFT", 0, 0)
-    accent:SetPoint("BOTTOMLEFT", 0, 0)
-    accent:SetWidth(ACCENT_W)
-    accent:SetColorTexture(GOLD_R, GOLD_G, GOLD_B, 0.9)
-    accent:Hide()
-    row.accent = accent
-
-    local nameFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    nameFS:SetPoint("TOPLEFT", ROW_INSET, -ROW_NAME_TOP)
-    nameFS:SetPoint("TOPRIGHT", -ROW_INSET, -ROW_NAME_TOP)
-    nameFS:SetJustifyH("LEFT")
-    nameFS:SetWordWrap(false)
-    row.nameFS = nameFS
-
-    local zoneFS = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    zoneFS:SetPoint("TOPLEFT", ROW_INSET + ROW_ZONE_INDENT, -ROW_ZONE_TOP)
-    zoneFS:SetPoint("TOPRIGHT", -ROW_INSET, -ROW_ZONE_TOP)
-    zoneFS:SetJustifyH("LEFT")
-    zoneFS:SetWordWrap(false)
-    row.zoneFS = zoneFS
-
-    -- Long names get clipped by the row's right edge; the mixin
-    -- shows the full text on hover when that happens. Configured
-    -- per-render via :SetOverflowText.
-    Mixin(row, Addon.overflowTooltipMixin)
-    row:InitOverflowTooltip()
-
-    return row
-end
 
 local function rowRender(row, item)
     local data = item.data
@@ -303,23 +267,6 @@ local function rowRender(row, item)
     row.accent:SetShown(data.here == true)
 
     row:SetOverflowText(row.nameFS, data.name)
-end
-
-local function headerFactory(parent)
-    local header = CreateFrame("Frame", nil, parent)
-    header:SetHeight(HEADER_HEIGHT)
-
-    local bg = header:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(GOLD_R, GOLD_G, GOLD_B, HEADER_BG_ALPHA)
-
-    local text = header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    text:SetPoint("LEFT", HEADER_INSET, 0)
-    text:SetJustifyH("LEFT")
-    text:SetWordWrap(false)
-    header.text = text
-
-    return header
 end
 
 local function headerRender(header, item)
@@ -375,17 +322,43 @@ function nameTypeahead:attach(editBox, parent, width, onPick, opts)
             return withHeaders(buildResults(text))
         end,
 
-        factories = {
-            row    = rowFactory,
-            header = headerFactory,
-        },
-        renderers = {
-            row    = rowRender,
-            header = headerRender,
-        },
-        heights = {
-            row    = ROW_HEIGHT,
-            header = HEADER_HEIGHT,
+        rows = {
+            row = {
+                pickable = true,
+                height   = ROW_HEIGHT,
+                accentStripe = {
+                    width = ACCENT_W,
+                    color = Addon.theme.tokens.TEXT.EMPHASIS,
+                    alpha = 0.9,
+                },
+                texts = {
+                    { key = "nameFS", font = "GameFontHighlight",
+                      points = {
+                        { "TOPLEFT",   ROW_INSET, -ROW_NAME_TOP },
+                        { "TOPRIGHT", -ROW_INSET, -ROW_NAME_TOP },
+                      } },
+                    { key = "zoneFS", font = "GameFontDisableSmall",
+                      points = {
+                        { "TOPLEFT",   ROW_INSET + ROW_ZONE_INDENT, -ROW_ZONE_TOP },
+                        { "TOPRIGHT", -ROW_INSET,                   -ROW_ZONE_TOP },
+                      } },
+                },
+                overflowTooltip = true,
+                render = rowRender,
+            },
+            header = {
+                pickable = false,
+                height   = HEADER_HEIGHT,
+                background = {
+                    color = Addon.theme.tokens.TEXT.EMPHASIS,
+                    alpha = HEADER_BG_ALPHA,
+                },
+                texts = {
+                    { key = "text", font = "GameFontNormal",
+                      points = { { "LEFT", HEADER_INSET, 0 } } },
+                },
+                render = headerRender,
+            },
         },
 
         debounce        = DEBOUNCE,

@@ -6,10 +6,9 @@
   tracked FontString has been truncated by WoW because its content
   exceeds the FontString's laid-out width.
 
-  The mixin configures the FontString itself (word-wrap on, single-
-  line cap) so WoW renders a trailing ellipsis on overflow. It then
-  asks the FontString directly whether truncation occurred via
-  IsTruncated() at hover time.
+  Expects the FontString to already be configured for single-line
+  ellipsis truncation by its creator (WordWrap=true + MaxLines=1).
+  Detects truncation at hover time via IsTruncated().
 
   Contract — target must:
     - be mouse-enabled
@@ -21,25 +20,12 @@
         Call once at frame construction.
 
     SetOverflowText(fontString, fullText)
-        Call each render. Configures the FontString for ellipsis
-        truncation, sets the text, and arms the hover handler.
+        Call each render. Sets the text and arms the hover handler.
 ]]
 
 local _, Addon = ...
 
 local overflowTooltipMixin = {}
-
--- Configure a FontString for ellipsis truncation. Idempotent.
--- The two wrap flags together tell WoW to lay out the text on a
--- single line and append "…" when it overflows the FontString's
--- width. SetJustifyV("TOP") pins the visible text to the
--- FontString's top edge so rows align consistently regardless of
--- whether truncation occurred.
-local function configureForTruncation(fontString)
-    fontString:SetWordWrap(true)
-    fontString:SetMaxLines(1)
-    fontString:SetJustifyV("TOP")
-end
 
 function overflowTooltipMixin:InitOverflowTooltip()
     self:HookScript("OnEnter", function(frame)
@@ -58,7 +44,6 @@ function overflowTooltipMixin:SetOverflowText(fontString, fullText)
         return
     end
 
-    configureForTruncation(fontString)
     fontString:SetText(fullText)
     self._overflowTooltip = { fs = fontString, fullText = fullText }
 end

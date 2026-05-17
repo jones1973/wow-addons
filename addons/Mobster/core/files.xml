@@ -1,9 +1,20 @@
 <!-- core/files.xml -->
 <Ui>
     <Script file="constants.lua"/>
-    <Script file="utils.lua"/>
+    <!--
+        Shared infrastructure loads before utils.lua, which calls
+        theme.chat. shared/files.xml loads the theme module and its
+        skinning strategies in the correct order.
+    -->
     <Include file="shared\files.xml"/>
+    <!--
+        Mobster's brand and chat configuration. Must run after theme.lua
+        (loaded inside shared/files.xml) and before any chat call.
+    -->
+    <Script file="themeConfig.lua"/>
+    <Script file="utils.lua"/>
     <Script file="npcNameFilter.lua"/>
     <Script file="questieHelpers.lua"/>
+    <Script file="expansion.lua"/>
     <Script file="itemDropIndex.lua"/>
 </Ui>

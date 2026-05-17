@@ -41,9 +41,16 @@ local itemDropIndex = {}
 -- INTERNAL STATE
 -- ============================================================================
 
-local npcToItems   -- nil until ensure() succeeds
-local itemToNpcs   -- nil until ensure() succeeds
-local itemNames    -- nil until ensure() succeeds
+local npcToItems    -- nil until ensure() succeeds
+local itemToNpcs    -- nil until ensure() succeeds
+local itemNames     -- nil until ensure() succeeds
+local itemSpells    -- nil until ensure() succeeds; itemId → spellId (only for items
+                    -- that teach a spell, e.g. recipes/patterns)
+local itemQualities -- nil until ensure() succeeds; itemId → quality int (0-7).
+                    -- Populated opportunistically from GetItemInfo at index-
+                    -- build time, then backfilled lazily as GET_ITEM_INFO_RECEIVED
+                    -- fires for items not yet cached client-side. Consumers
+                    -- subscribe to "MOBSTER:QUALITY_RESOLVED" for live updates.
 
 local function resolveQuestie()
     local loader = _G.QuestieLoader
@@ -76,9 +83,11 @@ function itemDropIndex:ensure()
     local qdb = resolveQuestie()
     if not qdb then return false end
 
-    npcToItems = {}
-    itemToNpcs = {}
-    itemNames  = {}
+    npcToItems    = {}
+    itemToNpcs    = {}
+    itemNames     = {}
+    itemSpells    = {}
+    itemQualities = {}
     for itemId, _ in pairs(qdb.ItemPointers) do
         local drops = qdb.QueryItemSingle(itemId, "npcDrops")
         if drops then
@@ -88,6 +97,24 @@ function itemDropIndex:ensure()
             local name = qdb.QueryItemSingle(itemId, "name")
             if name then
                 itemNames[itemId] = name
+
+                -- Quality opportunistic: GetItemInfo returns nil for
+                -- items not in the client's local cache, but the
+                -- call also triggers the server fetch. The
+                -- GET_ITEM_INFO_RECEIVED handler below backfills as
+                -- data arrives.
+                local _, _, q = GetItemInfo(itemId)
+                if q then itemQualities[itemId] = q end
+
+                -- Recipe/pattern items teach a spell on use; recording
+                -- the spellId here lets the "hide known recipes" filter
+                -- do its lookup without re-querying Questie at query
+                -- time. Items that don't teach a spell don't get an
+                -- entry (so this stays sparse).
+                local spellId = qdb.QueryItemSingle(itemId, "teachesSpell")
+                if spellId then
+                    itemSpells[itemId] = spellId
+                end
 
                 local invBucket = {}
                 itemToNpcs[itemId] = invBucket
@@ -165,16 +192,45 @@ function itemDropIndex:itemName(itemId)
 end
 
 --[[
-  Substring-search across cached item names. Returns up to `max`
-  item IDs whose name contains `text` (case-insensitive). Used by
-  itemAddPanel's search field — operates on the cached name table,
-  no Questie calls in the hot path.
+  Item ID to quality integer (0-7). Returns nil if not yet known —
+  GetItemInfo is asynchronous for items not in the client's cache.
+  Consumers wanting live updates subscribe to "MOBSTER:QUALITY_RESOLVED"
+  via Addon.events; the payload is { itemId = id, quality = q }.
+
+  @param itemId integer
+  @return integer | nil
+]]
+function itemDropIndex:itemQuality(itemId)
+    if not itemQualities then return nil end
+    return itemQualities[itemId]
+end
+
+--[[
+  Spell taught by an item, if any. Recipe items (Recipe: X, Pattern: Y,
+  Plans: Z, etc.) teach a spell on use; this returns that spell's ID.
+  Non-teaching items return nil. Used by the "hide known recipes"
+  filter to check IsSpellKnown(spellId).
+
+  @param itemId integer
+  @return integer | nil
+]]
+function itemDropIndex:teachesSpell(itemId)
+    if not itemSpells then return nil end
+    return itemSpells[itemId]
+end
+
+--[[
+  Substring-search across cached item names. Returns every itemId
+  whose name contains `text` (case-insensitive), sorted alphabetically.
+  Operates on the cached name table — no Questie calls in the hot
+  path. The full match set is returned; capping for display is the
+  consumer's concern (the typeahead picker handles that via its
+  maxResults config).
 
   @param text string
-  @param max integer
   @return {itemId, ...}  (empty table if cache unavailable)
 ]]
-function itemDropIndex:searchItems(text, max)
+function itemDropIndex:searchItems(text)
     if not self:ensure() then return {} end
     if not text or text == "" then return {} end
 
@@ -183,13 +239,9 @@ function itemDropIndex:searchItems(text, max)
     for itemId, name in pairs(itemNames) do
         if name:lower():find(lower, 1, true) then
             out[#out + 1] = itemId
-            if max and #out >= max then break end
         end
     end
 
-    -- Stable alphabetical order so the dropdown isn't pair-iteration
-    -- chaos. Sort after the cap because cap-before-sort would give
-    -- a random alphabetical slice.
     table.sort(out, function(a, b)
         return itemNames[a] < itemNames[b]
     end)
@@ -368,19 +420,25 @@ function itemDropIndex:resolveStaging(itemIds, existingEntries)
             contributingItems[itemId] = true
         end
         local itemNameList = {}
+        local sourceItemIds = {}
         for itemId in pairs(contributingItems) do
             local n = itemNames[itemId]
-            if n then itemNameList[#itemNameList + 1] = n end
+            if n then
+                itemNameList[#itemNameList + 1] = n
+                sourceItemIds[#sourceItemIds + 1] = itemId
+            end
         end
         table.sort(itemNameList)
+        table.sort(sourceItemIds)
         local reason = table.concat(itemNameList, ", ")
 
         local key = displayName .. "|" .. (zone or "")
         out[#out + 1] = {
-            name       = displayName,
-            zone       = zone,
-            reason     = reason,
-            isConflict = existingKey[key] == true,
+            name           = displayName,
+            zone           = zone,
+            reason         = reason,
+            sourceItemIds  = sourceItemIds,
+            isConflict     = existingKey[key] == true,
         }
     end
 
@@ -392,7 +450,44 @@ function itemDropIndex:resolveStaging(itemIds, existingEntries)
     return out
 end
 
+--[[
+  Warm the quality cache for a list of itemIds. Calls GetItemInfo for
+  each; cached items resolve synchronously, others trigger fetches
+  that the GET_ITEM_INFO_RECEIVED handler picks up. Designed for
+  callers that have identified a small set of items the user is
+  about to view (e.g., the items dropped by an NPC the user just
+  named) — running GetItemInfo eagerly lets the data warm in
+  parallel with whatever UI flow takes the user to a viewing point.
+
+  @param itemIds integer[]
+]]
+function itemDropIndex:prefetchQualitiesFor(itemIds)
+    if not itemQualities then return end
+    for i = 1, #itemIds do
+        local id = itemIds[i]
+        if not itemQualities[id] then
+            local _, _, q = GetItemInfo(id)
+            if q then itemQualities[id] = q end
+        end
+    end
+end
+
 function itemDropIndex:initialize()
+    -- Backfill itemQualities for items that weren't in the client
+    -- cache at ensure() time. The event fires for every item the
+    -- client receives data for, including items unrelated to this
+    -- addon — we filter by presence in itemNames (items we've
+    -- catalogued) so unrelated items don't bloat itemQualities.
+    Addon.events:subscribe("GET_ITEM_INFO_RECEIVED", function(_, itemId, success)
+        if not success then return end
+        if not itemNames or not itemNames[itemId] then return end
+        if itemQualities[itemId] then return end
+        local _, _, q = GetItemInfo(itemId)
+        if not q then return end
+        itemQualities[itemId] = q
+        Addon.events:emit("MOBSTER:QUALITY_RESOLVED",
+                          { itemId = itemId, quality = q })
+    end)
     return true
 end
 

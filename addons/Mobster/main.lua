@@ -6,21 +6,51 @@ local ADDON_NAME, Addon = ...
 
 MOBSTER = Addon
 
-local DEFAULTS = {
-    watchList     = {},
-    soundEnabled  = true,
-    markEnabled   = true,
+-- Per-character data. Only the watch list itself is character-scoped —
+-- every preference (sound, mark, framePos, sort, filters, group
+-- expand-state) lives in mobster_settings (account-wide).
+local CHARACTER_DEFAULTS = {
+    watchList = {},
 }
 
+-- Account-wide preferences. The toggle states for sound/mark live
+-- here even though the filtering they govern is character-data driven
+-- (party state, target GUID): the preference is "do I want this
+-- behavior?", not "is this character configured for it?".
+local SETTINGS_DEFAULTS = {
+    soundEnabled = true,
+    markEnabled  = true,
+    framePos     = nil,
+    filters      = nil,     -- bootstrapped to defaults inside itemAddPanel
+    listSort     = nil,     -- reserved for sort direction
+    expandedKeys = nil,     -- reserved for group expand state
+}
+
+-- 8-char hex identity, stable per entry. Used by listView to track
+-- rows across refreshes without depending on array index.
+--
+-- Range is capped at 2^31-1 because Lua 5.1's math.random requires
+-- both bounds fit in a signed 32-bit int; 0xffffffff overflows. The
+-- 31-bit space (~2.1 billion values) is still vastly more than any
+-- plausible watchList size needs to avoid collisions.
+local function genId()
+    return string.format("%08x", math.random(0, 0x7fffffff))
+end
+
 local function initSavedVars()
+    -- Per-character init. Schema-version mismatch wipes; there is no
+    -- in-place migration. The current schema requires every watchList
+    -- entry to be a table with an _id, and every creation path
+    -- (slash command, edit panel, itemAddPanel batch commit) goes
+    -- through Addon.newEntry to ensure that.
     mobster_character = mobster_character or {}
 
-    if mobster_character.version ~= Addon.constants.SV_VERSION then
+    if mobster_character.version ~= Addon.constants.CHARACTER_SV_VERSION then
         wipe(mobster_character)
-        mobster_character.version = Addon.constants.SV_VERSION
+        mobster_character.version = Addon.constants.CHARACTER_SV_VERSION
     end
 
-    for k, v in pairs(DEFAULTS) do
+    for k, v in pairs(CHARACTER_DEFAULTS) do
         if mobster_character[k] == nil then
             if type(v) == "table" then
                 mobster_character[k] = {}
@@ -30,6 +60,23 @@ local function initSavedVars()
         end
     end
 
+    -- Account-wide init
+    mobster_settings = mobster_settings or {}
+
+    if mobster_settings.version ~= Addon.constants.SETTINGS_SV_VERSION then
+        wipe(mobster_settings)
+        mobster_settings.version = Addon.constants.SETTINGS_SV_VERSION
+    end
+
+    for k, v in pairs(SETTINGS_DEFAULTS) do
+        if mobster_settings[k] == nil and v ~= nil then
+            if type(v) == "table" then
+                mobster_settings[k] = {}
+            else
+                mobster_settings[k] = v
+            end
+        end
+    end
 end
 
 local function initModules()
@@ -68,6 +115,14 @@ loader:SetScript("OnEvent", function(self, event, arg1)
     self:UnregisterEvent("ADDON_LOADED")
 end)
 
+-- Expose the entry-migration helper for slash commands and panels
+-- that create new entries.
+Addon.newEntry = function(fields)
+    local e = fields or {}
+    e._id = genId()
+    return e
+end
+
 SLASH_MOBSTER1 = "/mob"
 SlashCmdList["MOBSTER"] = function(msg)
     msg = (msg or ""):trim()
@@ -82,7 +137,8 @@ SlashCmdList["MOBSTER"] = function(msg)
     rest = rest and rest:trim() or ""
 
     if cmd == "add" and rest ~= "" then
-        table.insert(mobster_character.watchList, rest)
+        table.insert(mobster_character.watchList,
+            Addon.newEntry({ name = rest }))
         Addon.scanner:resetTracking()
         Addon.watchList:refresh()
         Addon.utils:chat("Added: " .. rest)
@@ -91,7 +147,7 @@ SlashCmdList["MOBSTER"] = function(msg)
         local lower = rest:lower()
         for i = #mobster_character.watchList, 1, -1 do
             local entry = mobster_character.watchList[i]
-            local entryName = (type(entry) == "string") and entry or entry.name
+            local entryName = entry.name
             if entryName and entryName:lower():find(lower, 1, true) then
                 Addon.utils:chat("Removed: " .. entryName)
                 table.remove(mobster_character.watchList, i)

@@ -35,7 +35,7 @@
   Exports: Addon.scanner
 ]]
 
-local ADDON_NAME, Addon = ...
+local _, Addon = ...
 
 local scanner = {}
 
@@ -237,7 +237,7 @@ local function tick()
             hasNew = true
             newByName[info.name] = (newByName[info.name] or 0) + 1
 
-            if not isGrouped() and mobster_character.markEnabled then
+            if not isGrouped() and mobster_settings and mobster_settings.markEnabled then
                 local icon = allocIcon()
                 if icon then
                     SetRaidTarget(info.unit, icon)
@@ -249,7 +249,7 @@ local function tick()
 
     if hasNew then
         local now = GetTime()
-        if mobster_character.soundEnabled
+        if mobster_settings and mobster_settings.soundEnabled
             and (now - lastSoundTime) >= constants.SOUND_COOLDOWN
         then
             PlaySound(constants.ALERT_SOUND, "Master")
@@ -300,7 +300,7 @@ function scanner:initialize()
     utils     = Addon.utils
 
     if not constants or not utils then
-        print("|cff33ff99" .. ADDON_NAME .. "|r: |cffff4444scanner: Missing dependencies|r")
+        Addon.theme.chat:alarm("scanner: Missing dependencies")
         return false
     end
 

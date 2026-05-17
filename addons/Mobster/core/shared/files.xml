@@ -1,4 +1,14 @@
 <!-- core/shared/files.xml -->
 <Ui>
+    <!--
+        Theme system. Loads first so any subsequent file (including
+        utils.lua, which calls theme.chat) can reference Addon.theme.
+        Strategies register themselves into theme.style.strategies.
+    -->
+    <Script file="theme.lua"/>
+    <Script file="theme\style\stock.lua"/>
+    <Script file="theme\style\elvui.lua"/>
+
     <Script file="pool.lua"/>
+    <Script file="events.lua"/>
 </Ui>
