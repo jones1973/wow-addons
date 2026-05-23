@@ -79,6 +79,34 @@
         visibleMaxRows  = 7,    -- viewport caps at this many "row" heights
         scrollFrameName = "MyAddonPickerScroll",
         hideOnPick      = true,
+
+        -- Chevron — combobox-style affordance on the editBox's right edge.
+        --
+        --   showChevron        boolean.        Attach the chevron at all.
+        --   chevronVisibleWhen "always" |      Stock combobox: chevron is
+        --                      "hasQuery" |    always there (default).
+        --                      function(text)  "hasQuery": chevron shows
+        --                                      only when text length >=
+        --                                      minQueryLen — parallels
+        --                                      searchBox's clear-icon
+        --                                      visibility pattern. Or a
+        --                                      custom predicate.
+        --   chevronAction      "showAll" |     "showAll": click bypasses
+        --                      "toggle"        minQueryLen and shows
+        --                                      everything (default; the
+        --                                      classic combobox click).
+        --                                      "toggle": click honors
+        --                                      minQueryLen — a no-op
+        --                                      when query is too short.
+        --
+        -- Natural pairings:
+        --   visibleWhen=always   + action=showAll   (combobox)
+        --   visibleWhen=hasQuery + action=toggle    (search field — the
+        --                                            chevron is visible
+        --                                            iff click is useful)
+        showChevron        = false,
+        chevronVisibleWhen = "always",
+        chevronAction      = "showAll",
     })
 
     picker:attach(editBox, parent, width, opts)  -- opts = { growDownward }
@@ -111,6 +139,8 @@ local DEFAULTS = {
     visibleMaxRows = 7,
     hideOnPick     = true,
     showChevron    = false,
+    chevronVisibleWhen = "always",   -- "always" | "hasQuery" | function(text)
+    chevronAction      = "showAll",  -- "showAll" | "toggle"
 
     -- Layout constants. The chrome owns these so all consumers look
     -- the same. If a consumer needs a different look, that's a strong
@@ -256,13 +286,14 @@ function typeaheadPicker:create(config)
     if hideOnPick == nil then hideOnPick = DEFAULTS.hideOnPick end
 
     -- showChevron: opt-in affordance. When true, attach installs a
-    -- caret button on the edit's right edge that, on click, opens
-    -- the dropdown showing whatever runQuery("") returns. Useful for
-    -- picker-mode fields (small, bounded haystack) where browsing
-    -- without typing makes sense; off by default since the typical
-    -- typeahead use is search-mode (large haystack, type to filter).
+    -- caret button on the edit's right edge. Visibility and click
+    -- behavior are governed by chevronVisibleWhen and chevronAction
+    -- respectively — see the docblock at the top of the file.
     local showChevron = config.showChevron
     if showChevron == nil then showChevron = DEFAULTS.showChevron end
+
+    local chevronVisibleWhen = config.chevronVisibleWhen or DEFAULTS.chevronVisibleWhen
+    local chevronAction      = config.chevronAction      or DEFAULTS.chevronAction
 
     local instance = {}
 
@@ -727,11 +758,54 @@ function typeaheadPicker:create(config)
             chevron:SetScript("OnClick", function()
                 if instance:isShown() then
                     instance:hide()
-                else
-                    editBox:SetFocus()
+                    return
+                end
+                editBox:SetFocus()
+                if chevronAction == "showAll" then
+                    -- Bypass minQueryLen; show whatever runQuery("") returns.
                     instance:showSuggestions()
+                else
+                    -- "toggle": only open the dropdown if the current
+                    -- query meets minQueryLen. No-op below threshold
+                    -- (and in practice the chevron is hidden in that
+                    -- state when chevronVisibleWhen == "hasQuery").
+                    local text = editBox:GetText() or ""
+                    if #text >= minQueryLen then
+                        instance:showSuggestions()
+                    end
                 end
             end)
+
+            -- Visibility policy. "always" leaves the chevron permanently
+            -- shown; other modes drive it from editBox text changes,
+            -- paralleling searchBox's clear-icon visibility pattern.
+            if chevronVisibleWhen ~= "always" then
+                local predicate
+                if chevronVisibleWhen == "hasQuery" then
+                    predicate = function(t) return t and #t >= minQueryLen end
+                elseif type(chevronVisibleWhen) == "function" then
+                    predicate = chevronVisibleWhen
+                else
+                    -- Unknown string; fall back to "always" behavior so
+                    -- a typo doesn't render the chevron permanently
+                    -- invisible.
+                    predicate = function() return true end
+                end
+
+                local function updateChevronVisibility()
+                    local text = editBox:GetText() or ""
+                    if predicate(text) then
+                        chevron:Show()
+                    else
+                        chevron:Hide()
+                    end
+                end
+
+                -- HookScript so we coexist with any other consumer of
+                -- OnTextChanged (e.g. searchBox's clear-button toggle).
+                editBox:HookScript("OnTextChanged", updateChevronVisibility)
+                updateChevronVisibility()  -- initial state
+            end
         end
     end
 
