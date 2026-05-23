@@ -215,6 +215,7 @@ return {
     "UnitIsPlayer",
     "UnitIsDead",
     "UnitAffectingCombat",
+    "UnitCanAttack",
     "UnitInParty",
     "UnitInRaid",
     "UnitBuff",
@@ -223,7 +224,10 @@ return {
     "GetPlayerInfoByGUID",
     "GetPlayerMapPosition",
     "GetBestMapForUnit",
+    "IsInGroup",
+    "IsInRaid",
     "IsInInstance",
+    "GetInstanceInfo",
     "IsResting",
     "IsMounted",
     "IsFlying",
@@ -237,6 +241,8 @@ return {
     "GetMinimapZoneText",
     "GetSubZoneText",
     "GetZoneText",
+    "SetRaidTarget",
+    "GetRaidTargetIndex",
 
     -- ========================================================================
     -- WOW QUEST / ACHIEVEMENT API
