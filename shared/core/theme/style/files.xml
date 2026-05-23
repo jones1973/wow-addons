@@ -1,0 +1,9 @@
+<!-- shared/core/theme/style/files.xml -->
+<!-- stock first (always-detecting fallback that other strategies can
+     defer to method-by-method). elvui second (detects only when ElvUI
+     is loaded; falls through to stock when not).
+-->
+<Ui>
+    <Script file="stock.lua"/>
+    <Script file="elvui.lua"/>
+</Ui>

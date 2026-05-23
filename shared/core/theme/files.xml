@@ -1,0 +1,8 @@
+<!-- shared/core/theme/files.xml -->
+<!-- theme.lua is the foundational module. The style/ subdir loads
+     after via auto-Include (sync.sh appends the Include for any
+     subdir manifest not in this template).
+-->
+<Ui>
+    <Script file="theme.lua"/>
+</Ui>
