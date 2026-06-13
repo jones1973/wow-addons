@@ -1,0 +1,8 @@
+## Interface: 20505, 110002
+## Title: She's Crafty
+## Notes: Scans the auction house and shows gear that are upgrades, using Pawn scales.
+## Author: Brad Jones
+## Version: 0.1.0
+## OptionalDeps: Pawn, Auctionator
+## SavedVariables: ps_settings, ps_tools
+## SavedVariablesPerCharacter: ps_character, ps_scanData
