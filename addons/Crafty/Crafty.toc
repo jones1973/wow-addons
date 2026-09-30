@@ -1,0 +1,51 @@
+## Interface: 20505, 50504
+## Title: Crafty
+## Notes: Crafting-first profession window with an account-wide recipe and inventory ledger
+## Author: Brad Jones
+## Version: 0.9.42
+## SavedVariables: crafty_settings, crafty_tools, crafty_character, crafty_factcheck, crafty_window
+## SavedVariablesPerCharacter: crafty_config
+
+## Core (shared infrastructure)
+core\files.xml
+
+## Static data and constants
+data\files.xml
+
+## Static recipe data - per client flavor. AllowLoadGameType only works on TOC
+## file lines (not inside files.xml), so these load here. Only the matching
+## client's dataset is loaded; the other is never read. Prefixes name the
+## pipeline that owns each file: wh = Wowhead scrape, db = DB2 export,
+## unprefixed = merged/hand-authored
+## finished product. Each data file states its own provenance and regen steps.
+data\dbRecipeReagents_mop.lua [AllowLoadGameType mists]
+data\dbRecipeReagents_tbc.lua [AllowLoadGameType tbc]
+data\recipeProgression_mop.lua [AllowLoadGameType mists]
+data\sourceNPCs_mop.lua [AllowLoadGameType mists]
+data\recipeProgression_tbc.lua [AllowLoadGameType tbc]
+data\recipeGate_mop.lua [AllowLoadGameType mists]
+data\recipeGate_tbc.lua [AllowLoadGameType tbc]
+data\professionTiers_mop.lua [AllowLoadGameType mists]
+data\professionTiers_tbc.lua [AllowLoadGameType tbc]
+data\dbRecipeCooldown_mop.lua [AllowLoadGameType mists]
+data\milling_mop.lua [AllowLoadGameType mists]
+data\prospecting_mop.lua [AllowLoadGameType mists]
+data\processingActivities_mop.lua [AllowLoadGameType mists]
+data\vendorReagents_mop.lua [AllowLoadGameType mists]
+data\augmentVerbs_mop.lua [AllowLoadGameType mists]
+data\discovery_mop.lua [AllowLoadGameType mists]
+data\gatheringNodes_mop.lua [AllowLoadGameType mists]
+data\dbRecipeCooldown_tbc.lua [AllowLoadGameType tbc]
+data\professionTools.lua
+
+## Game logic (ledger, craftability, commands)
+logic\files.xml
+
+## UI (crafting window)
+ui\files.xml
+
+## Persistence adapter (bridges shared modules to Crafty's SVs)
+persistence.lua
+
+## Application entry point
+main.lua

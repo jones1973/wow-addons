@@ -1,0 +1,939 @@
+{
+ "54020": {
+  "acq": "unobtainable",
+  "evidence": "user verdict: not avail"
+ },
+ "126869": {
+  "acq": "unobtainable",
+  "evidence": "user verdict: not avail"
+ },
+ "12722": {
+  "acq": "unobtainable",
+  "evidence": "user verdict: not avail"
+ },
+ "12900": {
+  "acq": "unobtainable",
+  "evidence": "user verdict: not avail"
+ },
+ "12904": {
+  "acq": "unobtainable",
+  "evidence": "user verdict: not avail"
+ },
+ "30561": {
+  "acq": "unobtainable",
+  "evidence": "user verdict: not avail"
+ },
+ "30573": {
+  "acq": "unobtainable",
+  "evidence": "user verdict: not avail"
+ },
+ "135535": {
+  "acq": "unobtainable",
+  "evidence": "user verdict: not avail"
+ },
+ "58309": {
+  "acq": "trainer",
+  "item": 43362,
+  "orange": 75,
+  "yellow": 80,
+  "green": 82,
+  "grey": 85,
+  "nskillup": 3,
+  "source": [
+   6
+  ],
+  "evidence": "user verdict + trainer observed: trainer-taught, o75 y80 g82 grey85, 3 skillups"
+ },
+ "57037": {
+  "acq": "discovery",
+  "item": 80581,
+  "orange": 75,
+  "yellow": 595,
+  "green": 600,
+  "grey": 605,
+  "nskillup": 3,
+  "source": [
+   7
+  ],
+  "evidence": "user verdict: discovery, 3 skillups; profession window shows orange 580"
+ },
+ "127475": {
+  "acq": "quest",
+  "item": 87817,
+  "orange": 600,
+  "yellow": 600,
+  "green": 602,
+  "grey": 605,
+  "nskillup": 1,
+  "source": [
+   2
+  ],
+  "evidence": "patch/user: weekly Inscription quest; DB2-real, WH-absent"
+ },
+ "2329": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2330": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "7183": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2660": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2663": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "3115": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "12260": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "7421": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "3918": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "3919": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "3275": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2149": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2152": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2881": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "7126": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "9058": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "9059": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2387": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2963": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "3915": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "8604": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2538": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "2540": {
+  "acq": "auto",
+  "source": [
+   100
+  ],
+  "evidence": "user observed: granted on learning the profession"
+ },
+ "69412": {
+  "orange": 390,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=390"
+ },
+ "27958": {
+  "orange": 350,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=350"
+ },
+ "44510": {
+  "orange": 410,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=410"
+ },
+ "44593": {
+  "orange": 420,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=420"
+ },
+ "44589": {
+  "orange": 415,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=415"
+ },
+ "1224209": {
+  "orange": 500,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=500"
+ },
+ "1224210": {
+  "orange": 500,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=500"
+ },
+ "1224211": {
+  "orange": 505,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=505"
+ },
+ "1224212": {
+  "orange": 505,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=505"
+ },
+ "1224213": {
+  "orange": 510,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=510"
+ },
+ "1224208": {
+  "orange": 510,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=510"
+ },
+ "1224215": {
+  "orange": 515,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=515"
+ },
+ "1224216": {
+  "orange": 515,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=515"
+ },
+ "75154": {
+  "orange": 475,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=475"
+ },
+ "75155": {
+  "orange": 475,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=475"
+ },
+ "136274": {
+  "orange": 550,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=550"
+ },
+ "136270": {
+  "orange": 550,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=550"
+ },
+ "136275": {
+  "orange": 550,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=550"
+ },
+ "136269": {
+  "orange": 550,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=550"
+ },
+ "136273": {
+  "orange": 550,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=550"
+ },
+ "136272": {
+  "orange": 550,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=550"
+ },
+ "124126": {
+  "orange": 535,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=535"
+ },
+ "124636": {
+  "orange": 550,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=550"
+ },
+ "124637": {
+  "orange": 560,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=560"
+ },
+ "124549": {
+  "orange": 400,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=400"
+ },
+ "45546": {
+  "orange": 390,
+  "acq": "trainer",
+  "source": [
+   6
+  ],
+  "evidence": "trainer observed (factCheck): skillReq=390"
+ },
+ "139745": {
+  "orange": 1,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=1, levelReq=85"
+ },
+ "139746": {
+  "orange": 21,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=21, levelReq=85"
+ },
+ "139747": {
+  "orange": 59,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=59, levelReq=85"
+ },
+ "139748": {
+  "orange": 71,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=71, levelReq=85"
+ },
+ "139749": {
+  "orange": 86,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=86, levelReq=85"
+ },
+ "139750": {
+  "orange": 121,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=121, levelReq=85"
+ },
+ "139751": {
+  "orange": 136,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=136, levelReq=85"
+ },
+ "139753": {
+  "orange": 151,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=151, levelReq=85"
+ },
+ "139754": {
+  "orange": 186,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=186, levelReq=85"
+ },
+ "139755": {
+  "orange": 199,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=199, levelReq=85"
+ },
+ "139756": {
+  "orange": 206,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=206, levelReq=85"
+ },
+ "139757": {
+  "orange": 231,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=231, levelReq=85"
+ },
+ "139759": {
+  "orange": 248,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=248, levelReq=85"
+ },
+ "139760": {
+  "orange": 256,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=256, levelReq=85"
+ },
+ "139761": {
+  "orange": 289,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=289, levelReq=85"
+ },
+ "139762": {
+  "orange": 299,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=299, levelReq=85"
+ },
+ "139763": {
+  "orange": 326,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=326, levelReq=85"
+ },
+ "139764": {
+  "orange": 347,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=347, levelReq=85"
+ },
+ "140165": {
+  "orange": 376,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=376, levelReq=85"
+ },
+ "140166": {
+  "orange": 421,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=421, levelReq=85"
+ },
+ "140167": {
+  "orange": 456,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=456, levelReq=85"
+ },
+ "140168": {
+  "orange": 486,
+  "acq": "trainer-quest",
+  "source": [
+   6
+  ],
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): skillReq=486, levelReq=85"
+ },
+ "41315": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "41316": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "41314": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "61482": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "56487": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "56574": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "81716": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "81720": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "127120": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "127121": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "1224217": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "1224214": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "58313": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "58344": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "58346": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "59326": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124576": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124586": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124578": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124585": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124572": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124582": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124574": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124124": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124580": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "131865": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124575": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124579": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124635": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124571": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124581": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124125": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124573": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124583": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124569": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124568": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124567": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124627": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124577": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124628": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "124584": {
+  "source": [
+   6
+  ],
+  "acq": "trainer",
+  "evidence": "trainer observed (factCheck): offered by trainer"
+ },
+ "42613": {
+  "levelReq": 35,
+  "evidence": "trainer observed (factCheck): levelReq=35 (Enchanting trainer)"
+ },
+ "104297": {
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): levelReq=85 (Cooking trainer)"
+ },
+ "104237": {
+  "levelReq": 85,
+  "evidence": "trainer observed (factCheck): levelReq=85 (Cooking trainer)"
+ }
+}

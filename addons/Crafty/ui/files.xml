@@ -1,0 +1,18 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- Shared widgets (menuRenderer, dropdown) before anything that uses them -->
+    <Include file="shared\widgets\files.xml"/>
+    <!-- Shared components (options panel engine) after the widgets they compose -->
+    <Include file="shared\components\files.xml"/>
+    <!-- Motion primitives before the components that compose on them -->
+    <Script file="motion.lua"/>
+    <!-- Components before the composer that creates them -->
+    <Script file="difficultyBar.lua"/>
+    <Script file="activityRail.lua"/>
+    <Script file="newlyLearnedTray.lua"/>
+    <Script file="recipePanel.lua"/>
+    <Script file="detailPanel.lua"/>
+    <Script file="journeyStrip.lua"/>
+    <Script file="professionFooter.lua"/>
+    <Script file="customizePanel.lua"/>
+    <Script file="craftingWindow.lua"/>
+</Ui>

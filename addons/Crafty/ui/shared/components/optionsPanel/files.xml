@@ -1,0 +1,6 @@
+<!-- ui/shared/components/optionsPanel/files.xml -->
+<Ui>
+    <!-- normalize (pure logic) before render (consumes it) -->
+    <Script file="normalize.lua"/>
+    <Script file="render.lua"/>
+</Ui>

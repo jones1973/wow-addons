@@ -1,0 +1,4 @@
+<!-- ui/shared/components/files.xml -->
+<Ui>
+    <Include file="optionsPanel\files.xml"/>
+</Ui>

@@ -1,0 +1,58 @@
+{
+  "_comment": [
+    "Trainer verdicts: hand corrections for trainer attributions the scrape got",
+    "wrong that the automatic DB2 audit CANNOT reach.",
+    "",
+    "Wowhead's taught-by-npc copies whole catalogues onto the wrong NPC - a",
+    "trainer's entire list attached to a neighbour, identical counts in pairs.",
+    "Most of these are now caught automatically: audit_trainer_professions in the",
+    "merge reconciles the NPC's tag (its real profession) against DB2's",
+    "SkillLineAbility (each recipe's real profession) and strips any recipe whose",
+    "DB2 profession differs from a single-profession trainer's tag. That handles",
+    "every case where the NPC's tag names one profession - Georgio Bolero, Lilliam",
+    "Sparkspindle, and the rest - with no hand entry.",
+    "",
+    "These verdicts remain for the cases the audit cannot key on:",
+    "  - The NPC's tag is a TITLE, not a profession: 'Head Chef', 'Guide to the",
+    "    Ways'. No profession to compare DB2 against.",
+    "  - The NPC's tag is a non-profession trainer that should teach NOTHING:",
+    "    'Flying Trainer' carrying a dumped catalogue.",
+    "  - The corruption REPLACED the real set rather than adding to it, so the NPC",
+    "    has no correct recipes left to keep - stripping is not enough, the real",
+    "    set must be granted. 'sameAs' copies it from a named exemplar; the DB2",
+    "    audit only removes, so it cannot reconstruct these.",
+    "",
+    "'teaches' replaces everything attributed to that NPC. 'sameAs' copies the set",
+    "from a named exemplar rather than restating it, so a regeneration picks up any",
+    "change to the standard set. 'exceptProfession' keeps everything but one",
+    "profession's worth."
+  ],
+  "42288": {
+    "name": "Robby Flay",
+    "teaches": "sameAs",
+    "sameAs": 1355,
+    "evidence": "In game: Head Chef in Stormwind, a COOKING trainer. Carried 20 First Aid recipes and all eight First Aid tier spells, teaching none of them. Given the standard Cooking set (41 recipes, identical across all 33 Cooking trainers), exemplar Cook Ghilm."
+  },
+  "43769": {
+    "name": "Bralla Cloudwing",
+    "teaches": "none",
+    "evidence": "In game: strictly a Flying Trainer in Stormwind. Carried the same 20 First Aid recipes as Robby Flay, teaching none of them."
+  },
+  "60167": {
+    "name": "Skydancer Shun",
+    "teaches": "none",
+    "evidence": "Flying Trainer. Carried 195 Engineering recipes - the same catalogue wrongly attributed to Ala'thinel. Same tag and same shape as Bralla Cloudwing, whose First Aid attribution is confirmed wrong in game."
+  },
+  "65862": {
+    "name": "Ala'thinel",
+    "teaches": "sameAs",
+    "sameAs": 64482,
+    "evidence": "Tagged <First Aid>, in the Shrine of Two Moons - the Horde Pandaria First Aid trainer. Carried 195 Engineering recipes and the Engineering tier ladder instead. Given Healer Nan's set (20 recipes), who carries the same short 'First Aid' tag and the same Pandaria zones: the MoP-era shape, standard 18 plus Windwool and Heavy Windwool Bandage."
+  },
+  "64231": {
+    "name": "Sungshin Ironpaw",
+    "teaches": "exceptProfession",
+    "exceptProfession": 773,
+    "evidence": "Halfhill's Pandaria cooking trainer - 'Guide to the Ways' is her role, and her 20 Cooking recipes are the MoP ladder on a clean 30-point step from Sliced Peaches at 1 to Rice Pudding at 520. Unique among trainers because no one else teaches that ladder, not because it is malformed. She also carried 312 Inscription recipes - the exact set held by Catarina Stanford, a real Inscription Trainer. First case where the NPC keeps a legitimate set, so this removes one profession rather than replacing everything."
+  }
+}

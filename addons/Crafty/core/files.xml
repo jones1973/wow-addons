@@ -1,0 +1,12 @@
+<!-- core/files.xml -->
+<Ui>
+    <!--
+        Shared infrastructure (events, dependencies, svRegistry, errorHandler,
+        utils, options, commands, ...). Synced into core/shared/ by the
+        monorepo sync; shared/files.xml loads them in dependency order.
+    -->
+    <Include file="shared\files.xml"/>
+    <!-- Crafty's semantic theme layer, on top of the shared theme the include
+         above installs. Loads at file-load, before ui/logic. -->
+    <Script file="theme\craftyTheme.lua"/>
+</Ui>

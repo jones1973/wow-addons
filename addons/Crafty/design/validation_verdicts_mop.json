@@ -1,0 +1,282 @@
+{
+ "28580": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28581": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28582": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28583": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28584": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28585": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28586": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28587": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28588": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28589": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28590": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "28591": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "41458": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "41500": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "41501": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "41502": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "41503": {
+  "acq": "discovery",
+  "evidence": "3.3.5 skill_discovery_template"
+ },
+ "34529": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "34530": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "34533": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "34534": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "34535": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17039"
+ },
+ "34537": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17039"
+ },
+ "34538": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17039"
+ },
+ "34540": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17039"
+ },
+ "34541": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17041"
+ },
+ "34542": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17041"
+ },
+ "34543": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17041"
+ },
+ "34544": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17041"
+ },
+ "34545": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17040"
+ },
+ "34546": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17040"
+ },
+ "34547": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17040"
+ },
+ "34548": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17040"
+ },
+ "36122": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "36124": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "36125": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9787"
+ },
+ "36126": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9787"
+ },
+ "36128": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9787"
+ },
+ "36129": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "36130": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "36131": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17039"
+ },
+ "36133": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17039"
+ },
+ "36134": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17041"
+ },
+ "36135": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17041"
+ },
+ "36136": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17040"
+ },
+ "36137": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17040"
+ },
+ "36256": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "36257": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "36258": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17039"
+ },
+ "36259": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17039"
+ },
+ "36260": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17041"
+ },
+ "36261": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17041"
+ },
+ "36262": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17040"
+ },
+ "36263": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=17040"
+ },
+ "55183": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9787"
+ },
+ "55184": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9787"
+ },
+ "55186": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "55187": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=9788"
+ },
+ "35575": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10656"
+ },
+ "35576": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10656"
+ },
+ "35577": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10656"
+ },
+ "35580": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10656"
+ },
+ "35582": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10656"
+ },
+ "35584": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10656"
+ },
+ "35585": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10660"
+ },
+ "35587": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10660"
+ },
+ "35588": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10660"
+ },
+ "35589": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10658"
+ },
+ "35590": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10658"
+ },
+ "35591": {
+  "acq": "legacy-spec",
+  "evidence": "3.3.5 trainer_spell ReqAbility=10658"
+ }
+}

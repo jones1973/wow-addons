@@ -1,0 +1,19 @@
+<!-- ui/shared/widgets/files.xml -->
+<Ui>
+    <Script file="tooltips.lua"/>
+    <Script file="menuRenderer.lua"/>
+    <Script file="contextMenu.lua"/>
+    <Script file="dropdown.lua"/>
+    <Script file="textBox.lua"/>
+    <Script file="dragDropMixin.lua"/>
+    <Script file="toggle.lua"/>
+    <Script file="clickableLabel.lua"/>
+    <Script file="filterTextbox.lua"/>
+    <Script file="labeledToggle.lua"/>
+    <Script file="sortControl.lua"/>
+    <Script file="scrollBox.lua"/>
+    <Script file="edgeScroller.lua"/>
+    <Script file="rowStack.lua"/>
+    <Script file="marchingBorder.lua"/>
+    <Script file="reactiveList.lua"/>
+</Ui>

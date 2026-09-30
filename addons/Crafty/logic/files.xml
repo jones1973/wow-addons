@@ -1,0 +1,32 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- recipeCatalog first: the single consumer-facing object over the shipped
+         static recipe data (data/ wh*/db*/patch* tables) -->
+    <Script file="recipeCatalog.lua"/>
+    <Script file="conversionStacks.lua"/>
+    <!-- Ledger next: facts store, depended on by everything below -->
+    <Script file="ledger.lua"/>
+    <Script file="craftability.lua"/>
+    <Script file="difficulty.lua"/>
+    <Script file="cooldownData.lua"/>
+    <Script file="cooldownSweep.lua"/>
+    <!-- recipeView: live derivation of a recipe's display facts; used by the
+         filters/sorts and the list renderer -->
+    <Script file="recipeView.lua"/>
+    <Script file="filterRegistry.lua"/>
+    <Script file="recipeFilters.lua"/>
+    <Script file="professionTools.lua"/>
+    <!-- professionWindow before its consumers (harvester, crafter) -->
+    <Script file="professionWindow.lua"/>
+    <!-- recipeScanner before the harvester that drives it -->
+    <Script file="recipeScanner.lua"/>
+    <Script file="professionHarvester.lua"/>
+    <!-- activityModel: grouped activity enumeration over the harvester +
+         the static processing map; consumed by the rail -->
+    <Script file="activityModel.lua"/>
+    <Script file="crafter.lua"/>
+    <Script file="factCheck.lua"/>
+    <Script file="nodeWatch.lua"/>
+    <Script file="eventCapture.lua"/>
+    <Script file="professionProgress.lua"/>
+    <Script file="builtinCommands.lua"/>
+</Ui>

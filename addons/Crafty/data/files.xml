@@ -1,0 +1,5 @@
+<!-- data/files.xml -->
+<Ui>
+    <Script file="constants.lua"/>
+    <Script file="settingDefaults.lua"/>
+</Ui>
